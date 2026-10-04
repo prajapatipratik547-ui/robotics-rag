@@ -1,0 +1,13 @@
+# Environment
+.venv/
+.env
+
+# Local Qdrant storage (rebuilt by ingestion)
+qdrant_data/
+
+# Python
+__pycache__/
+*.pyc
+
+# Downloaded model cache
+.fastembed_cache/
