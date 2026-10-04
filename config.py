@@ -31,6 +31,14 @@ CHUNK_MAX_TOKENS = 400
 CHUNK_OVERLAP_TOKENS = 100
 SUPPORTED_EXTENSIONS = {".pdf", ".md", ".html", ".htm"}
 
+# Retrieval
+TOP_K = 5  # chunks handed to the LLM
+
+# LLM (answer generation only). gemini-2.5-flash with thinking off answered
+# in ~1.2 s in testing versus 8-20 s for the 3.x Flash models; grounded
+# answering is reading, not reasoning, so the fast model is the better fit.
+GEMINI_MODEL = "gemini-2.5-flash"
+
 # Models (all run locally on CPU)
 DENSE_MODEL = "BAAI/bge-small-en-v1.5"
 SPARSE_MODEL = "Qdrant/bm25"

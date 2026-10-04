@@ -4,3 +4,4 @@ python-dotenv==1.2.4
 tokenizers==0.23.2
 pymupdf==1.28.2
 beautifulsoup4==4.15.0
+google-genai==2.28.0
