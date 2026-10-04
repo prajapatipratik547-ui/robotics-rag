@@ -33,6 +33,12 @@ SUPPORTED_EXTENSIONS = {".pdf", ".md", ".html", ".htm"}
 
 # Retrieval
 TOP_K = 5  # chunks handed to the LLM
+RETRIEVAL_MODES = ("dense", "sparse", "hybrid")
+DEFAULT_MODE = "hybrid"
+# Hybrid: how many candidates each of dense and sparse contributes to RRF
+# fusion. Wider than TOP_K so a chunk ranked, say, 8th by one method can
+# still win if the other method also ranks it well.
+HYBRID_PREFETCH_K = 20
 
 # LLM (answer generation only). gemini-2.5-flash with thinking off answered
 # in ~1.2 s in testing versus 8-20 s for the 3.x Flash models; grounded

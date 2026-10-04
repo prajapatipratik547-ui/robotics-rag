@@ -1,9 +1,15 @@
 """Retrieval: find the chunks most relevant to a question.
 
-Stage 2 has dense (semantic) search only. Sparse, hybrid, and reranking
-are added in later stages so each mode can be compared against this one.
+Three modes, selectable so they can be compared:
+  dense   semantic similarity of bge-small embeddings (captures meaning)
+  sparse  BM25 keyword match (captures exact tokens like "A1M8", "0x68")
+  hybrid  both, fused with Reciprocal Rank Fusion (RRF)
+
+Compare the modes side by side:
+  python src/retrieve.py "What baud rate does the A1M8 use?"
 """
 
+import argparse
 import sys
 from dataclasses import dataclass
 from functools import lru_cache
@@ -11,8 +17,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from fastembed import TextEmbedding
-from qdrant_client import QdrantClient
+from fastembed import SparseTextEmbedding, TextEmbedding
+from qdrant_client import QdrantClient, models
 
 import config
 
@@ -46,6 +52,23 @@ def get_dense_model() -> TextEmbedding:
     return TextEmbedding(config.DENSE_MODEL, cache_dir=str(config.MODEL_CACHE_DIR))
 
 
+@lru_cache(maxsize=1)
+def get_sparse_model() -> SparseTextEmbedding:
+    return SparseTextEmbedding(config.SPARSE_MODEL, cache_dir=str(config.MODEL_CACHE_DIR))
+
+
+def _dense_query(query: str) -> list[float]:
+    return next(get_dense_model().query_embed(query)).tolist()
+
+
+def _sparse_query(query: str) -> models.SparseVector:
+    # query_embed gives each query term weight 1; Qdrant multiplies in the
+    # IDF (rarer term -> bigger weight) because the collection's sparse
+    # vector was created with Modifier.IDF.
+    embedding = next(get_sparse_model().query_embed(query))
+    return models.SparseVector(indices=embedding.indices.tolist(), values=embedding.values.tolist())
+
+
 def _to_hits(points) -> list[Hit]:
     return [
         Hit(
@@ -63,12 +86,74 @@ def _to_hits(points) -> list[Hit]:
 def dense_search(query: str, k: int = config.TOP_K) -> list[Hit]:
     """Embed the question with the same model used at ingestion, then return
     the k chunks whose dense vectors are closest by cosine similarity."""
-    vector = next(get_dense_model().query_embed(query)).tolist()
     response = get_client().query_points(
         config.COLLECTION_NAME,
-        query=vector,
+        query=_dense_query(query),
         using=config.DENSE_VECTOR_NAME,
         limit=k,
         with_payload=True,
     )
     return _to_hits(response.points)
+
+
+def sparse_search(query: str, k: int = config.TOP_K) -> list[Hit]:
+    """BM25: score chunks by the question words they contain, weighting rare
+    words (part codes, register names) far above common ones."""
+    response = get_client().query_points(
+        config.COLLECTION_NAME,
+        query=_sparse_query(query),
+        using=config.SPARSE_VECTOR_NAME,
+        limit=k,
+        with_payload=True,
+    )
+    return _to_hits(response.points)
+
+
+def hybrid_search(query: str, k: int = config.TOP_K, prefetch_k: int = config.HYBRID_PREFETCH_K) -> list[Hit]:
+    """Run dense and sparse search inside Qdrant (the two prefetches), then
+    fuse the two ranked lists with Reciprocal Rank Fusion.
+
+    RRF ignores the raw scores (cosine and BM25 are on incomparable scales)
+    and uses only each chunk's rank in each list: a chunk earns 1/(k + rank - 1)
+    from every list it appears in (Qdrant's default k = 2), and the sums decide
+    the final order. A chunk near the top of both lists beats one that
+    tops just one list."""
+    response = get_client().query_points(
+        config.COLLECTION_NAME,
+        prefetch=[
+            models.Prefetch(query=_dense_query(query), using=config.DENSE_VECTOR_NAME, limit=prefetch_k),
+            models.Prefetch(query=_sparse_query(query), using=config.SPARSE_VECTOR_NAME, limit=prefetch_k),
+        ],
+        query=models.FusionQuery(fusion=models.Fusion.RRF),
+        limit=k,
+        with_payload=True,
+    )
+    return _to_hits(response.points)
+
+
+SEARCH_FUNCTIONS = {"dense": dense_search, "sparse": sparse_search, "hybrid": hybrid_search}
+
+
+def search(query: str, k: int = config.TOP_K, mode: str = config.DEFAULT_MODE) -> list[Hit]:
+    if mode not in SEARCH_FUNCTIONS:
+        raise ValueError(f"Unknown retrieval mode {mode!r}; choose from {config.RETRIEVAL_MODES}")
+    return SEARCH_FUNCTIONS[mode](query, k)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Compare retrieval modes for one query.")
+    parser.add_argument("query", nargs="+")
+    parser.add_argument("--k", type=int, default=config.TOP_K)
+    args = parser.parse_args()
+    query = " ".join(args.query)
+
+    print(f"Query: {query}")
+    for mode in config.RETRIEVAL_MODES:
+        print(f"\n{mode}:")
+        for rank, hit in enumerate(search(query, args.k, mode), start=1):
+            preview = " ".join(hit.text.split())[:90]
+            print(f"  {rank}. {hit.score:7.3f}  {hit.chunk_id:<38} {preview}")
+
+
+if __name__ == "__main__":
+    main()

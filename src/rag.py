@@ -4,6 +4,7 @@ CLI:
   python src/rag.py "What is the scan range of the RPLiDAR A1M8?"
   python src/rag.py                      # interactive: keep asking questions
   python src/rag.py --show-context "..." # also print the retrieved chunks
+  python src/rag.py --mode dense "..."   # retrieval mode: dense | sparse | hybrid
 """
 
 import argparse
@@ -14,15 +15,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import config
 from src.generate import Answer, generate
-from src.retrieve import dense_search
+from src.retrieve import search
 
 
-def ask(question: str, k: int = config.TOP_K) -> Answer:
-    hits = dense_search(question, k)
+def ask(question: str, k: int = config.TOP_K, mode: str = config.DEFAULT_MODE) -> Answer:
+    hits = search(question, k, mode)
     return generate(question, hits)
 
 
-def print_answer(answer: Answer, show_context: bool = False) -> None:
+def print_answer(answer: Answer, show_context: bool = False, mode: str = config.DEFAULT_MODE) -> None:
     print(f"\n{answer.text}\n")
     if answer.cited:
         print("Sources:")
@@ -31,7 +32,7 @@ def print_answer(answer: Answer, show_context: bool = False) -> None:
     else:
         print("Sources: none cited")
     if show_context:
-        print("\nRetrieved chunks (dense):")
+        print(f"\nRetrieved chunks ({mode}):")
         for i, hit in enumerate(answer.hits, start=1):
             preview = " ".join(hit.text.split())[:160]
             print(f"  [{i}] score={hit.score:.3f}  {hit.chunk_id}\n      {preview}...")
@@ -42,16 +43,18 @@ def main() -> None:
     parser.add_argument("question", nargs="*", help="question to ask (omit for interactive mode)")
     parser.add_argument("--k", type=int, default=config.TOP_K, help="number of chunks to retrieve")
     parser.add_argument("--show-context", action="store_true", help="print the retrieved chunks")
+    parser.add_argument("--mode", choices=config.RETRIEVAL_MODES, default=config.DEFAULT_MODE,
+                        help=f"retrieval mode (default: {config.DEFAULT_MODE})")
     args = parser.parse_args()
 
     if args.question:
-        print_answer(ask(" ".join(args.question), args.k), args.show_context)
+        print_answer(ask(" ".join(args.question), args.k, args.mode), args.show_context, args.mode)
         return
 
-    print("Ask a question about the robotics docs (empty line or Ctrl+C to quit).")
+    print(f"Ask a question about the robotics docs [{args.mode} retrieval] (empty line or Ctrl+C to quit).")
     try:
         while question := input("\n> ").strip():
-            print_answer(ask(question, args.k), args.show_context)
+            print_answer(ask(question, args.k, args.mode), args.show_context, args.mode)
     except (KeyboardInterrupt, EOFError):
         pass
 
