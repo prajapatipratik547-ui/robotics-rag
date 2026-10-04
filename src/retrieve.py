@@ -5,27 +5,34 @@ Three modes, selectable so they can be compared:
   sparse  BM25 keyword match (captures exact tokens like "A1M8", "0x68")
   hybrid  both, fused with Reciprocal Rank Fusion (RRF)
 
+Any mode can be followed by cross-encoder reranking (on by default).
+
 Compare the modes side by side:
   python src/retrieve.py "What baud rate does the A1M8 use?"
 """
 
 import argparse
+import atexit
 import sys
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, replace
 from functools import lru_cache
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from fastembed import SparseTextEmbedding, TextEmbedding
+from fastembed.rerank.cross_encoder import TextCrossEncoder
 from qdrant_client import QdrantClient, models
 
 import config
+from src.ingest import embedding_input
 
 
 @dataclass
 class Hit:
-    """One retrieved chunk plus its retrieval score."""
+    """One retrieved chunk plus its retrieval score (and rerank score, if
+    reranked: a raw relevance logit where higher is better and >0 roughly
+    means 'relevant')."""
 
     chunk_id: str
     source_file: str
@@ -33,6 +40,7 @@ class Hit:
     page: int | None
     text: str
     score: float
+    rerank_score: float | None = None
 
     @property
     def citation(self) -> str:
@@ -44,7 +52,11 @@ class Hit:
 # are slow, and local mode allows only one client per storage folder.
 @lru_cache(maxsize=1)
 def get_client() -> QdrantClient:
-    return QdrantClient(path=str(config.QDRANT_PATH))
+    client = QdrantClient(path=str(config.QDRANT_PATH))
+    # Close explicitly at exit; otherwise the client is garbage-collected
+    # during interpreter shutdown and prints a spurious ImportError.
+    atexit.register(client.close)
+    return client
 
 
 @lru_cache(maxsize=1)
@@ -55,6 +67,11 @@ def get_dense_model() -> TextEmbedding:
 @lru_cache(maxsize=1)
 def get_sparse_model() -> SparseTextEmbedding:
     return SparseTextEmbedding(config.SPARSE_MODEL, cache_dir=str(config.MODEL_CACHE_DIR))
+
+
+@lru_cache(maxsize=1)
+def get_reranker() -> TextCrossEncoder:
+    return TextCrossEncoder(config.RERANK_MODEL, cache_dir=str(config.MODEL_CACHE_DIR))
 
 
 def _dense_query(query: str) -> list[float]:
@@ -140,6 +157,40 @@ def search(query: str, k: int = config.TOP_K, mode: str = config.DEFAULT_MODE) -
     return SEARCH_FUNCTIONS[mode](query, k)
 
 
+def rerank(query: str, hits: list[Hit], k: int = config.TOP_K) -> list[Hit]:
+    """Reorder candidates with a cross-encoder and keep the best k.
+
+    Dense search compares two vectors made separately (question alone, chunk
+    alone). A cross-encoder instead reads the question and the chunk together
+    in one pass, so it can check whether this chunk actually answers this
+    question. Far more accurate, but too slow to run over the whole corpus,
+    hence retrieve-then-rerank: cheap search narrows to ~20, this picks 5.
+
+    It scores the same header + text that was embedded, so it knows which
+    part a datasheet page belongs to."""
+    if not hits:
+        return []
+    documents = [embedding_input(asdict(hit)) for hit in hits]
+    scores = list(get_reranker().rerank(query, documents))
+    reranked = [replace(hit, rerank_score=float(s)) for hit, s in zip(hits, scores)]
+    reranked.sort(key=lambda hit: hit.rerank_score, reverse=True)
+    return reranked[:k]
+
+
+def retrieve(
+    query: str,
+    k: int = config.TOP_K,
+    mode: str = config.DEFAULT_MODE,
+    use_rerank: bool = config.DEFAULT_RERANK,
+) -> list[Hit]:
+    """The retrieval entry point used by the pipeline: search in the given
+    mode, optionally widening to RERANK_CANDIDATES and reranking down to k."""
+    if not use_rerank:
+        return search(query, k, mode)
+    candidates = search(query, max(k, config.RERANK_CANDIDATES), mode)
+    return rerank(query, candidates, k)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Compare retrieval modes for one query.")
     parser.add_argument("query", nargs="+")
@@ -147,12 +198,17 @@ def main() -> None:
     args = parser.parse_args()
     query = " ".join(args.query)
 
+    def show(label: str, hits: list[Hit]) -> None:
+        print(f"\n{label}:")
+        for rank, hit in enumerate(hits, start=1):
+            preview = " ".join(hit.text.split())[:80]
+            rerank_col = f"  rerank={hit.rerank_score:6.2f}" if hit.rerank_score is not None else ""
+            print(f"  {rank}. {hit.score:7.3f}{rerank_col}  {hit.chunk_id:<38} {preview}")
+
     print(f"Query: {query}")
     for mode in config.RETRIEVAL_MODES:
-        print(f"\n{mode}:")
-        for rank, hit in enumerate(search(query, args.k, mode), start=1):
-            preview = " ".join(hit.text.split())[:90]
-            print(f"  {rank}. {hit.score:7.3f}  {hit.chunk_id:<38} {preview}")
+        show(mode, search(query, args.k, mode))
+    show("hybrid + rerank", retrieve(query, args.k, "hybrid", use_rerank=True))
 
 
 if __name__ == "__main__":

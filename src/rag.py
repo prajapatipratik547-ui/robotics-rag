@@ -1,10 +1,11 @@
-"""The full pipeline in one call: ask(question) = retrieve -> generate.
+"""The full pipeline in one call: ask(question) = retrieve -> (rerank) -> generate.
 
 CLI:
   python src/rag.py "What is the scan range of the RPLiDAR A1M8?"
   python src/rag.py                      # interactive: keep asking questions
   python src/rag.py --show-context "..." # also print the retrieved chunks
   python src/rag.py --mode dense "..."   # retrieval mode: dense | sparse | hybrid
+  python src/rag.py --no-rerank "..."    # skip the cross-encoder reranking step
 """
 
 import argparse
@@ -15,15 +16,20 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import config
 from src.generate import Answer, generate
-from src.retrieve import search
+from src.retrieve import retrieve
 
 
-def ask(question: str, k: int = config.TOP_K, mode: str = config.DEFAULT_MODE) -> Answer:
-    hits = search(question, k, mode)
+def ask(
+    question: str,
+    k: int = config.TOP_K,
+    mode: str = config.DEFAULT_MODE,
+    use_rerank: bool = config.DEFAULT_RERANK,
+) -> Answer:
+    hits = retrieve(question, k, mode, use_rerank)
     return generate(question, hits)
 
 
-def print_answer(answer: Answer, show_context: bool = False, mode: str = config.DEFAULT_MODE) -> None:
+def print_answer(answer: Answer, show_context: bool = False, label: str = "") -> None:
     print(f"\n{answer.text}\n")
     if answer.cited:
         print("Sources:")
@@ -32,10 +38,11 @@ def print_answer(answer: Answer, show_context: bool = False, mode: str = config.
     else:
         print("Sources: none cited")
     if show_context:
-        print(f"\nRetrieved chunks ({mode}):")
+        print(f"\nRetrieved chunks ({label}):")
         for i, hit in enumerate(answer.hits, start=1):
             preview = " ".join(hit.text.split())[:160]
-            print(f"  [{i}] score={hit.score:.3f}  {hit.chunk_id}\n      {preview}...")
+            rerank_col = f"  rerank={hit.rerank_score:.2f}" if hit.rerank_score is not None else ""
+            print(f"  [{i}] score={hit.score:.3f}{rerank_col}  {hit.chunk_id}\n      {preview}...")
 
 
 def main() -> None:
@@ -45,16 +52,22 @@ def main() -> None:
     parser.add_argument("--show-context", action="store_true", help="print the retrieved chunks")
     parser.add_argument("--mode", choices=config.RETRIEVAL_MODES, default=config.DEFAULT_MODE,
                         help=f"retrieval mode (default: {config.DEFAULT_MODE})")
+    parser.add_argument("--rerank", action=argparse.BooleanOptionalAction, default=config.DEFAULT_RERANK,
+                        help=f"cross-encoder reranking (default: {'on' if config.DEFAULT_RERANK else 'off'})")
     args = parser.parse_args()
+    label = f"{args.mode}{' + rerank' if args.rerank else ''}"
+
+    def run(question: str) -> None:
+        print_answer(ask(question, args.k, args.mode, args.rerank), args.show_context, label)
 
     if args.question:
-        print_answer(ask(" ".join(args.question), args.k, args.mode), args.show_context, args.mode)
+        run(" ".join(args.question))
         return
 
-    print(f"Ask a question about the robotics docs [{args.mode} retrieval] (empty line or Ctrl+C to quit).")
+    print(f"Ask a question about the robotics docs [{label}] (empty line or Ctrl+C to quit).")
     try:
         while question := input("\n> ").strip():
-            print_answer(ask(question, args.k, args.mode), args.show_context, args.mode)
+            run(question)
     except (KeyboardInterrupt, EOFError):
         pass
 

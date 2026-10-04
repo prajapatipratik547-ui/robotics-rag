@@ -39,6 +39,11 @@ DEFAULT_MODE = "hybrid"
 # fusion. Wider than TOP_K so a chunk ranked, say, 8th by one method can
 # still win if the other method also ranks it well.
 HYBRID_PREFETCH_K = 20
+# Reranking: fetch this many candidates, let the cross-encoder reorder them,
+# keep the best TOP_K. Bigger = better recall but slower (the cross-encoder
+# reads every candidate in full, ~0.1-0.2 s each on CPU).
+RERANK_CANDIDATES = 20
+DEFAULT_RERANK = True
 
 # LLM (answer generation only). gemini-2.5-flash with thinking off answered
 # in ~1.2 s in testing versus 8-20 s for the 3.x Flash models; grounded

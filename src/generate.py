@@ -33,6 +33,7 @@ Rules:
 
 RETRYABLE_STATUS = {429, 500, 503}  # rate limit / transient server errors
 MAX_ATTEMPTS = 4
+MAX_RETRY_WAIT_S = 60  # a 429 asking us to wait longer is a daily quota, not a blip
 
 
 @dataclass
@@ -56,9 +57,22 @@ def get_llm() -> genai.Client:
     return genai.Client(api_key=config.GEMINI_API_KEY)
 
 
+def _retry_delay_s(error: errors.APIError) -> float | None:
+    """The server's suggested wait from a 429's RetryInfo, e.g. '29119s'."""
+    try:
+        for detail in error.details["error"]["details"]:
+            if detail.get("@type", "").endswith("RetryInfo"):
+                return float(detail["retryDelay"].rstrip("s"))
+    except (KeyError, TypeError, ValueError, AttributeError):
+        pass
+    return None
+
+
 def call_llm(system: str, prompt: str) -> str:
-    """The only provider-specific function. Retries rate limits and transient
-    server errors with exponential backoff (2 s, 4 s, 8 s)."""
+    """The only provider-specific function. Retries per-minute rate limits and
+    transient server errors with backoff (2 s, 4 s, 8 s, or the server's
+    suggested wait). Fails fast with a clear message when the daily quota is
+    used up, since retrying for hours is pointless."""
     llm_config = types.GenerateContentConfig(
         system_instruction=system,
         temperature=0,  # same question -> same answer, which keeps eval stable
@@ -74,7 +88,13 @@ def call_llm(system: str, prompt: str) -> str:
         except errors.APIError as e:
             if e.code not in RETRYABLE_STATUS or attempt == MAX_ATTEMPTS:
                 raise
-            time.sleep(2**attempt)
+            suggested = _retry_delay_s(e) if e.code == 429 else None
+            if suggested is not None and suggested > MAX_RETRY_WAIT_S:
+                raise RuntimeError(
+                    f"Gemini free-tier quota for {config.GEMINI_MODEL} is used up; it resets in "
+                    f"~{suggested / 3600:.1f} h. Check usage at https://ai.dev/rate-limit"
+                ) from e
+            time.sleep(max(2**attempt, suggested or 0))
     raise AssertionError("unreachable")
 
 
