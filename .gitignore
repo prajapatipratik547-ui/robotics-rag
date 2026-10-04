@@ -2,8 +2,9 @@
 .venv/
 .env
 
-# Local Qdrant storage (rebuilt by ingestion)
+# Local Qdrant storage and chunk cache (both rebuilt by ingestion)
 qdrant_data/
+data/processed/*.jsonl
 
 # Python
 __pycache__/

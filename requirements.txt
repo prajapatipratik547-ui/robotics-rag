@@ -1,3 +1,6 @@
 qdrant-client[fastembed]==1.19.1
 fastembed==0.8.1
 python-dotenv==1.2.4
+tokenizers==0.23.2
+pymupdf==1.28.2
+beautifulsoup4==4.15.0

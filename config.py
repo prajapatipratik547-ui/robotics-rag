@@ -20,6 +20,16 @@ MODEL_CACHE_DIR = ROOT_DIR / ".fastembed_cache"  # downloaded models live here, 
 
 # Qdrant
 COLLECTION_NAME = "robotics_docs"
+DENSE_VECTOR_NAME = "dense"  # named vector for semantic search
+SPARSE_VECTOR_NAME = "bm25"  # named vector for keyword search
+
+# Chunking (counted in the dense model's own tokens).
+# bge-small and bge-reranker-base both truncate input at 512 tokens, so a
+# 400-token chunk leaves room for the title/section header we prepend and,
+# at rerank time, for the question that gets paired with the chunk.
+CHUNK_MAX_TOKENS = 400
+CHUNK_OVERLAP_TOKENS = 100
+SUPPORTED_EXTENSIONS = {".pdf", ".md", ".html", ".htm"}
 
 # Models (all run locally on CPU)
 DENSE_MODEL = "BAAI/bge-small-en-v1.5"

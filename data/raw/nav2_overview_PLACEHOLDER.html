@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Nav2 Overview (PLACEHOLDER)</title>
+  <style>body { font-family: sans-serif; }</style>
+</head>
+<body>
+  <nav>Home | Docs | Tutorials</nav>
+  <h1>Nav2 Overview (PLACEHOLDER)</h1>
+  <p><strong>PLACEHOLDER.</strong> This is a short hand-written summary used only
+  to test the pipeline end to end. It is NOT the official Nav2 documentation.
+  Replace it with real pages from docs.nav2.org before evaluation.</p>
+
+  <h2>What Nav2 is</h2>
+  <p>Nav2 is the navigation stack for ROS 2. It takes a robot from its current
+  pose to a goal pose while avoiding obstacles, using a map, sensor data such as
+  laser scans, and the robot's odometry.</p>
+
+  <h2>Main servers</h2>
+  <ul>
+    <li><strong>BT Navigator</strong> runs a behavior tree that orchestrates the
+    whole navigation task.</li>
+    <li><strong>Planner Server</strong> computes a global path. Available planners
+    include NavFn, the Smac Planner family, and Theta*.</li>
+    <li><strong>Controller Server</strong> follows the path by producing velocity
+    commands. Available controllers include DWB, Regulated Pure Pursuit, and MPPI.</li>
+    <li><strong>Behavior Server</strong> runs recovery behaviors such as spin,
+    back up, and wait when the robot gets stuck.</li>
+    <li><strong>Smoother Server</strong> smooths planned paths.</li>
+  </ul>
+
+  <h2>Costmaps and localization</h2>
+  <p>Nav2 uses a global costmap for planning and a local costmap for control.
+  Costmaps are built from layers such as the static map layer, the obstacle
+  layer, and the inflation layer. Localization against a known map is usually
+  done with AMCL, and maps are served by the map server.</p>
+
+  <h2>Lifecycle</h2>
+  <p>Nav2 servers are ROS 2 lifecycle nodes. The lifecycle manager brings them up
+  in order and can shut them down cleanly.</p>
+  <footer>Copyright notice placeholder</footer>
+</body>
+</html>
