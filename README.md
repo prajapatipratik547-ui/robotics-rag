@@ -10,9 +10,20 @@ dense + BM25 retrieval, RRF fusion, and cross-encoder reranking.
 > are then reranked by the `bge-reranker-base` cross-encoder and the best 5
 > go to Gemini 2.5 Flash, which answers with citations.
 > The full README arrives in Stage 6. The build plan is in `build.rag.md`.
->
-> `data/raw/` currently holds three **placeholder** files (`*_PLACEHOLDER.*`)
-> for testing only. They will be replaced with real datasheets and docs.
+
+## Corpus
+
+32 documents, 906 chunks:
+
+- **9 datasheets:** RPLiDAR A1M8, Raspberry Pi 4B, Arduino Mega 2560, MPU6050
+  (product spec + register map), NEO-6M GPS, L298N, HC-SR04, MG996R.
+- **23 Nav2 documentation pages** (ROS 2 Jazzy): navigation concepts, robot
+  setup guides, the core servers, costmaps, AMCL, controllers (RPP, MPPI),
+  planners (NavFn, Smac Hybrid), tuning, and the SLAM and GPS tutorials.
+
+The documents are copyrighted by their publishers, so they are not in git.
+`python data/download_corpus.py` downloads them into `data/raw/` and lists
+the source of every file.
 
 ## Quick start
 
@@ -22,6 +33,7 @@ py -3.13 -m venv .venv
 pip install -r requirements.txt
 copy .env.example .env      # then set GEMINI_API_KEY (free key: aistudio.google.com)
 python tests/test_qdrant.py # Stage 0 smoke test
+python data/download_corpus.py  # fetch the 32 source documents into data/raw/
 python src/ingest.py        # Stage 1: load, chunk, embed, store data/raw/
 python src/rag.py "What is the scan range of the RPLiDAR A1M8?"
 python src/rag.py           # interactive mode; add --show-context to see retrieved chunks

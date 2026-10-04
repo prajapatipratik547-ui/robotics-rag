@@ -2,6 +2,11 @@
 .venv/
 .env
 
+# Downloaded corpus: manufacturers' copyrighted datasheets and docs pages.
+# Rebuild it with: python data/download_corpus.py
+data/raw/*
+!data/raw/.gitkeep
+
 # Local Qdrant storage and chunk cache (both rebuilt by ingestion)
 qdrant_data/
 data/processed/*.jsonl

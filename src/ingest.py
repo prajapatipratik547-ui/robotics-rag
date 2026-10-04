@@ -9,6 +9,7 @@ Run:  python src/ingest.py
 
 import json
 import re
+import shutil
 import sys
 import uuid
 from dataclasses import dataclass
@@ -17,7 +18,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pymupdf
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Comment
 from fastembed import SparseTextEmbedding, TextEmbedding
 from qdrant_client import QdrantClient, models
 from tokenizers import Tokenizer
@@ -78,23 +79,34 @@ def load_html(path: Path) -> list[Section]:
     """Strip page chrome, turn <h1>-<h6> into '#' lines, then reuse the
     Markdown splitter so both formats get identical section handling."""
     soup = BeautifulSoup(path.read_text(encoding="utf-8"), "html.parser")
-    for tag in soup(["script", "style", "nav", "footer", "header", "noscript"]):
+    # Comments must go first: the whitespace pass below would otherwise turn
+    # them into ordinary visible text (e.g. a theme's license header).
+    for comment in soup.find_all(string=lambda s: isinstance(s, Comment)):
+        comment.extract()
+
+    # Documentation sites mark the article itself; reading only that drops
+    # sidebars, banners and "skip to content" links. Plain pages fall back
+    # to the whole <body>.
+    root = soup.find("article") or soup.find("main") or soup.find(attrs={"role": "main"}) or soup.body or soup
+    for tag in root(["script", "style", "nav", "footer", "header", "noscript", "svg", "button", "form", "aside"]):
         tag.decompose()
+    for permalink in root.select("a.headerlink"):  # the '¶' anchor next to headings
+        permalink.decompose()
 
     # Collapse source-code line wrapping inside text, except in <pre> blocks.
-    for string in soup.find_all(string=True):
+    for string in root.find_all(string=True):
         if not string.find_parent("pre"):
             string.replace_with(re.sub(r"\s+", " ", string))
 
-    for h in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6"]):
+    for h in root.find_all(["h1", "h2", "h3", "h4", "h5", "h6"]):
         level = int(h.name[1])
         h.replace_with(f"\n\n{'#' * level} {h.get_text(' ', strip=True)}\n\n")
-    for block in soup.find_all(["p", "pre", "table", "ul", "ol"]):
+    for block in root.find_all(["p", "pre", "table", "ul", "ol"]):
         block.append("\n\n")
-    for line_break in soup.find_all(["li", "tr", "br"]):
+    for line_break in root.find_all(["li", "tr", "br"]):
         line_break.append("\n")
 
-    text = (soup.body or soup).get_text()
+    text = root.get_text()
     text = "\n".join(line.strip() for line in text.splitlines())
     text = re.sub(r"\n{3,}", "\n\n", text)
     return split_markdown_sections(text, path.name)
@@ -263,11 +275,25 @@ def build_chunks(sections: list[Section], tokenizer: Tokenizer) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 
+def reset_store() -> None:
+    """Wipe the local Qdrant folder so every run rebuilds from scratch and
+    never keeps stale chunks from deleted or edited files.
+
+    This must happen before a client is opened. client.delete_collection()
+    is not enough on Windows: local mode keeps the collection's SQLite file
+    open, the folder delete silently fails, and recreating the collection
+    brings the old points back."""
+    if not config.QDRANT_PATH.exists():
+        return
+    try:
+        shutil.rmtree(config.QDRANT_PATH)
+    except PermissionError:
+        print(f"Cannot reset {config.QDRANT_PATH}: it is open in another process "
+              "(e.g. the Streamlit app or another Python session). Close it and re-run.")
+        sys.exit(1)
+
+
 def create_collection(client: QdrantClient, dense_dim: int) -> None:
-    """Recreate the collection from scratch so re-running ingestion never
-    leaves stale chunks from deleted or edited files."""
-    if client.collection_exists(config.COLLECTION_NAME):
-        client.delete_collection(config.COLLECTION_NAME)
     client.create_collection(
         config.COLLECTION_NAME,
         vectors_config={
@@ -310,9 +336,9 @@ def embed_and_store(client: QdrantClient, chunks: list[dict]) -> None:
         client.upsert(config.COLLECTION_NAME, points=points[start : start + UPSERT_BATCH_SIZE])
 
 
-def verify(client: QdrantClient) -> None:
-    """DoD check: count the points and confirm every one carries a dense AND
-    a sparse vector."""
+def verify(client: QdrantClient, expected: int) -> None:
+    """DoD check: the collection holds exactly the chunks just stored (no
+    stale leftovers) and every point carries a dense AND a sparse vector."""
     count = client.count(config.COLLECTION_NAME, exact=True).count
     both, offset = 0, None
     sample = None
@@ -335,6 +361,9 @@ def verify(client: QdrantClient) -> None:
         point, dense, sparse = sample
         print(f"  sample {point.payload['chunk_id']}: dense dim={len(dense)}, "
               f"sparse non-zero terms={len(sparse.indices)}")
+    if count != expected:
+        print(f"FAIL: expected {expected} points (one per chunk), found {count}; stale points survived the reset.")
+        sys.exit(1)
     if count == 0 or both != count:
         print("FAIL: collection is empty or some points are missing a vector.")
         sys.exit(1)
@@ -367,11 +396,12 @@ def main() -> None:
     print(f"Wrote {cache.relative_to(config.ROOT_DIR)}")
 
     print("\nEmbedding (dense + BM25) and storing in Qdrant...")
+    reset_store()
     client = QdrantClient(path=str(config.QDRANT_PATH))
     try:
         embed_and_store(client, chunks)
         print(f"Stored {len(chunks)} chunks.")
-        verify(client)
+        verify(client, expected=len(chunks))
     finally:
         client.close()
 
