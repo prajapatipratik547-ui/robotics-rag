@@ -1,5 +1,9 @@
 # Robotics Hybrid RAG
 
+**Live demo: [robotics-rag.streamlit.app](https://robotics-rag.streamlit.app/)**
+(free hosting: after a quiet spell the app sleeps, and the first visit then
+rebuilds the search index, which takes a few minutes).
+
 Ask a question about robot hardware or navigation software, such as *"What is
 the I2C address of the MPU-6050 when AD0 is high?"*, and get an answer looked
 up in the real datasheets and ROS 2 Nav2 docs, with a citation to the exact
