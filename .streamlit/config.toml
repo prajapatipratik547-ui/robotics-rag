@@ -1,0 +1,3 @@
+# Keep the app local: don't send Streamlit usage statistics.
+[browser]
+gatherUsageStats = false
