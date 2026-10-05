@@ -67,6 +67,9 @@ GROQ_BASE_URL = "https://api.groq.com/openai/v1"  # OpenAI-compatible endpoint, 
 # Models (all run locally on CPU)
 DENSE_MODEL = "BAAI/bge-small-en-v1.5"
 SPARSE_MODEL = "Qdrant/bm25"
+# Chunks embedded per batch at ingestion. FastEmbed's default of 256 peaks at
+# ~7 GB of RAM on 400-token chunks, which gets the app killed on free hosting.
+EMBED_BATCH_SIZE = 16
 # The reranker can be swapped with the RERANK_MODEL environment variable: the
 # 1 GB bge-reranker-base needs ~2 GB of RAM in the app, more than free hosting allows.
 RERANK_MODEL = os.getenv("RERANK_MODEL", "BAAI/bge-reranker-base")

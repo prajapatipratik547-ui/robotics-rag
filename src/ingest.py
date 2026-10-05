@@ -313,8 +313,8 @@ def embed_and_store(client: QdrantClient, chunks: list[dict]) -> None:
     sparse_model = SparseTextEmbedding(config.SPARSE_MODEL, cache_dir=str(config.MODEL_CACHE_DIR))
 
     inputs = [embedding_input(c) for c in chunks]
-    dense_vectors = list(dense_model.embed(inputs))
-    sparse_vectors = list(sparse_model.embed(inputs))
+    dense_vectors = list(dense_model.embed(inputs, batch_size=config.EMBED_BATCH_SIZE))
+    sparse_vectors = list(sparse_model.embed(inputs, batch_size=config.EMBED_BATCH_SIZE))
 
     create_collection(client, dense_dim=len(dense_vectors[0]))
 
