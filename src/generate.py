@@ -14,6 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import groq
 from google import genai
 from google.genai import errors, types
 
@@ -28,12 +29,17 @@ Rules:
 - Use ONLY the numbered context passages provided. Do not use outside knowledge.
 - After every sentence that states a fact, cite the passage(s) it came from as [1], [2], etc.
 - Quote numbers, units, part codes, and pin or register names exactly as written in the context.
-- If the context does not contain the answer, reply exactly: "{NOT_FOUND}"
+- If the context has nothing that answers the question, reply with exactly this sentence and nothing else: "{NOT_FOUND}"
+- If the context answers only part of the question, answer that part and say in one short sentence which part the documents don't cover. Never add the sentence above to an answer.
 - Be concise: a few sentences or a short list."""
 
 RETRYABLE_STATUS = {429, 500, 503}  # rate limit / transient server errors
 MAX_ATTEMPTS = 4
 MAX_RETRY_WAIT_S = 60  # a 429 asking us to wait longer is a daily quota, not a blip
+
+
+class QuotaExceeded(RuntimeError):
+    """The provider's rate limit is still hit after retrying (usually a daily cap)."""
 
 
 @dataclass
@@ -51,7 +57,16 @@ def build_prompt(question: str, hits: list[Hit]) -> str:
 
 
 @lru_cache(maxsize=1)
-def get_llm() -> genai.Client:
+def get_groq() -> groq.Groq:
+    if not config.GROQ_API_KEY:
+        raise RuntimeError("GROQ_API_KEY is not set. Add it to the .env file in the project root.")
+    # The SDK itself retries 429s and 5xx errors, waiting as long as Groq's
+    # retry-after header says (per-minute token limits reset within seconds).
+    return groq.Groq(api_key=config.GROQ_API_KEY, max_retries=5)
+
+
+@lru_cache(maxsize=1)
+def get_gemini() -> genai.Client:
     if not config.GEMINI_API_KEY:
         raise RuntimeError("GEMINI_API_KEY is not set. Add it to the .env file in the project root.")
     return genai.Client(api_key=config.GEMINI_API_KEY)
@@ -69,10 +84,34 @@ def _retry_delay_s(error: errors.APIError) -> float | None:
 
 
 def call_llm(system: str, prompt: str) -> str:
-    """The only provider-specific function. Retries per-minute rate limits and
-    transient server errors with backoff (2 s, 4 s, 8 s, or the server's
-    suggested wait). Fails fast with a clear message when the daily quota is
-    used up, since retrying for hours is pointless."""
+    """Send one system + user prompt to the configured provider, return its text.
+    The provider-specific code lives only here and in the two functions below."""
+    if config.LLM_PROVIDER == "groq":
+        return _call_groq(system, prompt)
+    if config.LLM_PROVIDER == "gemini":
+        return _call_gemini(system, prompt)
+    raise ValueError(f"Unknown LLM_PROVIDER {config.LLM_PROVIDER!r}; use 'groq' or 'gemini'.")
+
+
+def _call_groq(system: str, prompt: str) -> str:
+    try:
+        response = get_groq().chat.completions.create(
+            model=config.GROQ_MODEL,
+            messages=[{"role": "system", "content": system}, {"role": "user", "content": prompt}],
+            temperature=0,  # same question -> same answer, which keeps eval stable
+            reasoning_effort="none",  # answer directly; grounded lookup needs no thinking
+        )
+    except groq.RateLimitError as e:
+        # Still limited after the SDK's retries: a daily limit, not a blip.
+        raise QuotaExceeded(f"Groq rate limit for {config.GROQ_MODEL}: {e.message}") from e
+    return (response.choices[0].message.content or "").strip()
+
+
+def _call_gemini(system: str, prompt: str) -> str:
+    """Retries per-minute rate limits and transient server errors with backoff
+    (2 s, 4 s, 8 s, or the server's suggested wait). Fails fast with a clear
+    message when the daily quota is used up, since retrying for hours is
+    pointless."""
     llm_config = types.GenerateContentConfig(
         system_instruction=system,
         temperature=0,  # same question -> same answer, which keeps eval stable
@@ -81,7 +120,7 @@ def call_llm(system: str, prompt: str) -> str:
     )
     for attempt in range(1, MAX_ATTEMPTS + 1):
         try:
-            response = get_llm().models.generate_content(
+            response = get_gemini().models.generate_content(
                 model=config.GEMINI_MODEL, contents=prompt, config=llm_config
             )
             return (response.text or "").strip()
@@ -90,7 +129,7 @@ def call_llm(system: str, prompt: str) -> str:
                 raise
             suggested = _retry_delay_s(e) if e.code == 429 else None
             if suggested is not None and suggested > MAX_RETRY_WAIT_S:
-                raise RuntimeError(
+                raise QuotaExceeded(
                     f"Gemini free-tier quota for {config.GEMINI_MODEL} is used up; it resets in "
                     f"~{suggested / 3600:.1f} h. Check usage at https://ai.dev/rate-limit"
                 ) from e

@@ -45,10 +45,24 @@ HYBRID_PREFETCH_K = 20
 RERANK_CANDIDATES = 20
 DEFAULT_RERANK = True
 
-# LLM (answer generation only). gemini-2.5-flash with thinking off answered
-# in ~1.2 s in testing versus 8-20 s for the 3.x Flash models; grounded
-# answering is reading, not reasoning, so the fast model is the better fit.
+# LLM (answer generation only): "groq" or "gemini".
+# Groq is the default: its free tier on this project's key allows 1,000
+# requests/day per model (read from Groq's rate-limit response headers), while
+# Gemini's allowed only 20/day, too few to run the Stage 5 eval.
+LLM_PROVIDER = "groq"
+# qwen3.8-27b with reasoning off answered in ~0.3 s in testing and uses the
+# [n] citation format we parse; the gpt-oss models write their own 【n†Lx】
+# markers instead.
+GROQ_MODEL = "qwen/qwen3.8-27b"
+# gemini-2.5-flash with thinking off answered in ~1.2 s versus 8-20 s for the
+# 3.x Flash models; grounded answering is reading, not reasoning.
 GEMINI_MODEL = "gemini-2.5-flash"
+
+# Evaluation judge (Stage 5): a different model from the generator, so the
+# judge isn't grading its own answers. Groq limits are per model, so the
+# judge also gets its own quota.
+JUDGE_MODEL = "openai/gpt-oss-120b"
+GROQ_BASE_URL = "https://api.groq.com/openai/v1"  # OpenAI-compatible endpoint, used by ragas
 
 # Models (all run locally on CPU)
 DENSE_MODEL = "BAAI/bge-small-en-v1.5"

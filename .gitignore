@@ -11,6 +11,9 @@ data/raw/*
 qdrant_data/
 data/processed/*.jsonl
 
+# Cached LLM answers and judge scores (rebuilt by eval/run_eval.py)
+eval/cache/
+
 # Python
 __pycache__/
 *.pyc

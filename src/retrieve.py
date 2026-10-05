@@ -59,6 +59,14 @@ def get_client() -> QdrantClient:
     return client
 
 
+def close_client() -> None:
+    """Release the local Qdrant store so another process can open it
+    (local mode allows only one process at a time)."""
+    if get_client.cache_info().currsize:
+        get_client().close()
+        get_client.cache_clear()
+
+
 @lru_cache(maxsize=1)
 def get_dense_model() -> TextEmbedding:
     return TextEmbedding(config.DENSE_MODEL, cache_dir=str(config.MODEL_CACHE_DIR))
