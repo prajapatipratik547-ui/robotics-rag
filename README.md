@@ -10,6 +10,19 @@ parameter names like `inflation_radius`), then a **cross-encoder reranker**
 puts the best passages first. Everything except the final answer-writing step
 runs locally on a CPU, for free.
 
+## The app
+
+`streamlit run app.py` opens a web app with three tabs:
+
+- **💬 Ask:** a chat. Each answer cites its sources as `[n]` badges, and the
+  passages the LLM read are one click away, with the question's key words
+  highlighted.
+- **⚖️ Compare modes:** one question through dense, hybrid and hybrid +
+  rerank side by side. For test-set questions, passages that contain the
+  answer are marked ✓, so you can watch keyword search rescue a question that
+  semantic search misses.
+- **📊 Evaluation:** the results below, as stat tiles and charts.
+
 ## Results
 
 Measured on a hand-built test set of 26 questions, each with a confirmed
@@ -21,7 +34,7 @@ answer and the exact passage(s) in the documents that contain it
 |---|---|---|---|---|---|
 | Dense only (baseline) | 88% | 0.815 | 0.721 | 0.262 | 0.01 s |
 | Hybrid (dense + BM25, RRF) | **96%** | 0.891 | **0.801** | **0.292** | 0.02 s |
-| Hybrid + rerank | **96%** | **0.905** | 0.798 | 0.285 | ~4.5 s |
+| Hybrid + rerank | **96%** | **0.905** | 0.798 | 0.285 | ~4 s |
 
 - **Hit@5** is the retrieval accuracy: the share of questions where a chunk
   containing the answer is among the 5 passages handed to the LLM. If it isn't
@@ -36,6 +49,22 @@ answer and the exact passage(s) in the documents that contain it
 from 88% to 96% and MRR from 0.815 to 0.905. Almost all of the accuracy gain
 comes from hybrid search; reranking adds a smaller ranking gain at a real
 latency cost (see design decisions below).
+
+**Smaller rerankers.** The same test, swapping only the cross-encoder
+(retrieval metrics; reports in [eval/rerankers/](eval/rerankers/)):
+
+| Reranker | Size | Hit@5 | MRR | Context recall | Latency (CPU) |
+|---|---|---|---|---|---|
+| BAAI/bge-reranker-base (default) | 1.04 GB | 96% | 0.905 | 0.798 | ~4 s |
+| jinaai/jina-reranker-v1-tiny-en | 0.13 GB | 96% | 0.923 | 0.827 | 0.8 s |
+| jinaai/jina-reranker-v1-turbo-en | 0.15 GB | 96% | 0.923 | 0.811 | 1.1 s |
+| Xenova/ms-marco-MiniLM-L-6-v2 | 0.08 GB | 96% | 0.897 | 0.846 | 0.9 s |
+| Xenova/ms-marco-MiniLM-L-12-v2 | 0.12 GB | 96% | 0.897 | 0.817 | 1.7 s |
+
+All four small models do as well as the 1 GB default at a fraction of the
+size and time. On 26 questions, the MRR differences come down to one or two
+questions changing rank, so treat them as a tie rather than a ranking. The
+deployed app uses `jina-reranker-v1-tiny-en`, which fits a free host's memory.
 
 The answer-level ragas metrics (faithfulness to the retrieved passages, and
 accuracy against the reference answer, both judged by a separate LLM) are
@@ -88,10 +117,10 @@ app sidebar or on the command line, which is how the modes were compared.
 | Dense embeddings | BAAI/bge-small-en-v1.5 via FastEmbed (384-dim) | local CPU |
 | Keyword search | BM25 (`Qdrant/bm25` via FastEmbed, IDF computed by Qdrant) | local CPU |
 | Fusion | Qdrant Query API: `prefetch` + `FusionQuery(RRF)` | local |
-| Reranker | BAAI/bge-reranker-base cross-encoder via FastEmbed | local CPU |
+| Reranker | BAAI/bge-reranker-base cross-encoder via FastEmbed (swappable with `RERANK_MODEL`) | local CPU |
 | Answer LLM | `qwen/qwen3.8-27b` on Groq's free tier (Gemini 2.5 Flash also supported) | API |
 | Evaluation | ragas 0.4, with `openai/gpt-oss-120b` on Groq as the judge | API |
-| UI | Streamlit | local |
+| UI | Streamlit, with Altair charts | local |
 | Parsing | PyMuPDF (PDF), Beautiful Soup (HTML) | local |
 
 Retrieval and fusion are written directly against the Qdrant client in under
@@ -123,9 +152,16 @@ python src/rag.py "What is the stall torque of the MG996R?"   # one question
 python src/rag.py --show-context                               # interactive, shows retrieved chunks
 python src/rag.py --mode dense --no-rerank "Is MPPI supported?" # pick a retrieval mode
 python src/retrieve.py "A1M8 scan frequency"   # compare all modes' top 5 side by side
+python tests/test_qdrant.py                    # smoke test: local Qdrant works
+```
+
+The evaluation needs a few extra packages (ragas and its pinned dependencies):
+
+```powershell
+pip install -r requirements-eval.txt
 python eval/run_eval.py --retrieval-only       # retrieval metrics, no LLM calls (~2 min)
 python eval/run_eval.py                        # plus LLM-judged answer metrics (rate-limited, resumable)
-python tests/test_qdrant.py                    # smoke test: local Qdrant works
+$env:RERANK_MODEL="jinaai/jina-reranker-v1-tiny-en"; python eval/run_eval.py --retrieval-only --output eval/rerankers/jina-reranker-v1-tiny-en.md
 ```
 
 Qdrant's local mode lets only one process open the database at a time, so
@@ -135,6 +171,29 @@ The eval releases the database as soon as its retrieval step finishes.
 To use Gemini instead of Groq, set `LLM_PROVIDER = "gemini"` in
 [config.py](config.py) and `GEMINI_API_KEY` in `.env`. Its free tier allowed
 only 20 requests/day on this project's key, too few for the eval.
+
+## Deploy it for free (Streamlit Community Cloud)
+
+1. Sign in at [share.streamlit.io](https://share.streamlit.io) with GitHub,
+   click **Create app**, and pick this repository, branch `main`, file
+   `app.py`.
+2. Under **Advanced settings**, paste the secrets:
+   ```toml
+   GROQ_API_KEY = "your-groq-key"
+   RERANK_MODEL = "jinaai/jina-reranker-v1-tiny-en"
+   DAILY_LLM_LIMIT = 300
+   ```
+3. Click **Deploy**. On first start the app downloads the 32 documents and
+   builds its index (about 3-5 minutes, with progress shown), then serves
+   questions. It rebuilds the same way whenever the host restarts it.
+
+Why those settings: with the 1 GB default reranker the app needs about 2.2 GB
+of RAM, more than Community Cloud's free tier allows; with
+`jina-reranker-v1-tiny-en` it needs about 1 GB and scores as well (see the
+reranker table above). `DAILY_LLM_LIMIT` caps how many LLM answers the public
+app gives per day, so visitors can't use up your Groq free quota. Repeated
+questions are answered from a cache and don't count. Past the cap, the app
+still shows the retrieved passages.
 
 ## Corpus
 
@@ -158,14 +217,17 @@ becomes the document title that is prepended to each chunk before embedding.
 ## Project structure
 
 ```
-app.py                  Streamlit UI
+app.py                  Streamlit app: Ask, Compare modes and Evaluation tabs
+ui/                     the app's styles, HTML pieces and Evaluation tab
 config.py               every model name, path and setting, in one place
 src/ingest.py           load -> chunk -> embed -> store
 src/retrieve.py         dense, sparse and hybrid search, reranking
 src/generate.py         prompt -> LLM -> answer with citations mapped to sources
 src/rag.py              ask(question) = retrieve + generate; command-line entry point
+src/testset.py          the test set, and which chunks answer each question
 eval/testset.jsonl      26 questions, reference answers, evidence phrases
-eval/run_eval.py        compares dense, hybrid and hybrid+rerank; writes eval/results.md
+eval/run_eval.py        compares dense, hybrid and hybrid+rerank; writes eval/results.md + .json
+eval/rerankers/         the same evaluation with four smaller rerankers
 data/download_corpus.py downloads the source documents
 tests/test_qdrant.py    smoke test for local Qdrant
 ```
@@ -181,13 +243,18 @@ tests/test_qdrant.py    smoke test for local Qdrant
   on different scales, so adding them needs tuned weights. RRF uses only each
   chunk's rank in each list, so it needs no tuning.
 - **Reranking was a smaller win than expected.** It improved ranking (MRR
-  0.891 to 0.905) but not Hit@5, and costs ~4.5 s per question on CPU against
+  0.891 to 0.905) but not Hit@5, and costs ~4 s per question on CPU against
   0.02 s for hybrid alone. Once hybrid search already finds the answer for
   96% of questions, there is little left for a reranker to fix. It also made
   some ranking mistakes, such as preferring a power-consumption table whose
-  footnotes mention "cold start" over the table that holds the cold-start time. I kept it on by
-  default for answer quality, with a toggle, and reported the result as
-  measured rather than tuning settings until it won.
+  footnotes mention "cold start" over the table that holds the cold-start
+  time. I reported the result as measured rather than tuning settings until
+  it won.
+- **A bigger model wasn't a better one.** Four rerankers 7-13 times smaller
+  matched the 1 GB default on this test set and ran 2-5 times faster. That
+  mattered for deployment: the default needs ~2.2 GB of RAM in the app, more
+  than the free host gives. Measuring first turned "turn reranking off online"
+  into "use a model that is just as good and fits".
 - **Chunks of 400 tokens, counted with the embedding model's own tokenizer.**
   Both models truncate input at 512 tokens, so 400 leaves room for the
   document title and section name prepended to each chunk, and for the
@@ -223,5 +290,7 @@ tests/test_qdrant.py    smoke test for local Qdrant
   absolute real-world accuracy.
 - PDF tables are extracted as flat text, so values in complex tables can be
   hard to retrieve and read (the NEO-6M time-to-first-fix table is one example).
-- Reranking on CPU takes several seconds per question; a GPU, or reranking
-  fewer candidates, would cut that.
+- The default reranker takes ~4 s per question on CPU; the small rerankers
+  above cut that to under a second at no measured cost.
+- The free host sleeps when unused and forgets its index when restarted, so
+  the first visit after a restart waits 3-5 minutes while the index is rebuilt.
