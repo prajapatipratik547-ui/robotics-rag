@@ -63,6 +63,10 @@ GEMINI_MODEL = "gemini-2.5-flash"
 # judge also gets its own quota.
 JUDGE_MODEL = "openai/gpt-oss-120b"
 GROQ_BASE_URL = "https://api.groq.com/openai/v1"  # OpenAI-compatible endpoint, used by ragas
+# Cap on answer length. Groq's free tier allows 1,000 output tokens per minute and
+# counts the cap up front, so leaving it unset gets every request refused. The
+# longest eval answer so far is ~200 tokens.
+ANSWER_MAX_TOKENS = 300
 
 # Models (all run locally on CPU)
 DENSE_MODEL = "BAAI/bge-small-en-v1.5"

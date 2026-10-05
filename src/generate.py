@@ -100,6 +100,7 @@ def _call_groq(system: str, prompt: str) -> str:
             messages=[{"role": "system", "content": system}, {"role": "user", "content": prompt}],
             temperature=0,  # same question -> same answer, which keeps eval stable
             reasoning_effort="none",  # answer directly; grounded lookup needs no thinking
+            max_completion_tokens=config.ANSWER_MAX_TOKENS,
         )
     except groq.RateLimitError as e:
         # Still limited after the SDK's retries: a daily limit, not a blip.

@@ -194,6 +194,15 @@ def ask(question: str, mode: str, use_rerank: bool) -> dict:
             "answer": answer, "retrieval_s": retrieval_s, "generation_s": generation_s}
 
 
+def show_error(error: Exception) -> None:
+    """A plain message for visitors; the provider's full error goes to the server log."""
+    if isinstance(error, QuotaExceeded):
+        print(error, file=sys.stderr)
+        st.warning("The free LLM tier is busy right now (rate limit). Wait a minute and ask again.")
+    else:
+        st.error(str(error))
+
+
 # --- tabs ----------------------------------------------------------------------------
 
 
@@ -223,7 +232,7 @@ def chat_tab(mode: str, use_rerank: bool) -> None:
                     try:
                         turn = ask(question, mode, use_rerank)
                     except (QuotaExceeded, RuntimeError) as e:
-                        st.error(str(e))
+                        show_error(e)
                         return
                 show_answer(turn, str(len(history)))
             history.append(turn)
@@ -256,7 +265,7 @@ def compare_tab() -> None:
                 try:
                     turn = ask(question, mode, use_rerank)
                 except (QuotaExceeded, RuntimeError) as e:
-                    st.error(str(e))
+                    show_error(e)
                     continue
             if relevant is not None:
                 ranks = [i for i, h in enumerate(turn["hits"], start=1) if h.chunk_id in relevant]
