@@ -1,0 +1,326 @@
+{
+  "date": "2026-10-05",
+  "rerank_model": "Xenova/ms-marco-MiniLM-L-12-v2",
+  "metrics": [
+    "hit",
+    "mrr",
+    "recall",
+    "precision"
+  ],
+  "complete": true,
+  "summary": {
+    "dense": {
+      "hit": 0.8846153846153846,
+      "mrr": 0.8153846153846154,
+      "recall": 0.7211538461538461,
+      "precision": 0.26153846153846155,
+      "latency_s": 0.006451038460139758
+    },
+    "hybrid": {
+      "hit": 0.9615384615384616,
+      "mrr": 0.8910256410256411,
+      "recall": 0.8012820512820512,
+      "precision": 0.2923076923076923,
+      "latency_s": 0.018985319230033874
+    },
+    "hybrid+rerank": {
+      "hit": 0.9615384615384616,
+      "mrr": 0.8974358974358974,
+      "recall": 0.8173076923076923,
+      "precision": 0.30000000000000004,
+      "latency_s": 1.6699494615425534
+    }
+  },
+  "by_style": {
+    "keyword": {
+      "dense": {
+        "hit": 0.9,
+        "mrr": 0.86
+      },
+      "hybrid": {
+        "hit": 1.0,
+        "mrr": 0.975
+      },
+      "hybrid+rerank": {
+        "hit": 1.0,
+        "mrr": 0.95
+      }
+    },
+    "paraphrase": {
+      "dense": {
+        "hit": 0.8333333333333334,
+        "mrr": 0.6666666666666666
+      },
+      "hybrid": {
+        "hit": 0.8333333333333334,
+        "mrr": 0.611111111111111
+      },
+      "hybrid+rerank": {
+        "hit": 0.8333333333333334,
+        "mrr": 0.7222222222222222
+      }
+    }
+  },
+  "per_question": [
+    {
+      "id": "q01",
+      "style": "keyword",
+      "question": "What is the distance range of the RPLiDAR A1M8?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q02",
+      "style": "keyword",
+      "question": "What is the I2C address of the MPU-6050 when the AD0 pin is high?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q03",
+      "style": "keyword",
+      "question": "What full-scale ranges can the gyroscope on the MPU-6050 be set to?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q04",
+      "style": "keyword",
+      "question": "Which MPU-6050 register sets the power mode and clock source, and what is its address?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 2
+      }
+    },
+    {
+      "id": "q05",
+      "style": "keyword",
+      "question": "What is the default value of the MPU-6050 WHO_AM_I register?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q06",
+      "style": "keyword",
+      "question": "What is the default baud rate of the NEO-6M GPS module?",
+      "first_rank": {
+        "dense": 5,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q07",
+      "style": "keyword",
+      "question": "How long does the NEO-6M take to get its first fix from a cold start?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 2
+      }
+    },
+    {
+      "id": "q08",
+      "style": "keyword",
+      "question": "What is the maximum supply voltage of the L298 motor driver?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q09",
+      "style": "paraphrase",
+      "question": "What distances can the ultrasonic ranging module measure, and how accurate is it?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q10",
+      "style": "paraphrase",
+      "question": "How long must the trigger pulse be to start an ultrasonic distance measurement?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q11",
+      "style": "keyword",
+      "question": "What is the stall torque of the MG996R servo?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q12",
+      "style": "keyword",
+      "question": "How much flash memory does the Arduino Mega 2560 have?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q13",
+      "style": "keyword",
+      "question": "How many digital I/O pins and analog inputs does the Arduino Mega 2560 have?",
+      "first_rank": {
+        "dense": null,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q14",
+      "style": "paraphrase",
+      "question": "What power supply does the Raspberry Pi 4 need, and which CPU does it run?",
+      "first_rank": {
+        "dense": 2,
+        "hybrid": 3,
+        "hybrid+rerank": 3
+      }
+    },
+    {
+      "id": "q15",
+      "style": "keyword",
+      "question": "What is the default value of inflation_radius in the Nav2 inflation layer?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q16",
+      "style": "paraphrase",
+      "question": "Which setting controls how fast the cost drops off as you move away from an obstacle, and what is its default?",
+      "first_rank": {
+        "dense": null,
+        "hybrid": null,
+        "hybrid+rerank": null
+      }
+    },
+    {
+      "id": "q17",
+      "style": "keyword",
+      "question": "At what frequency does the Nav2 controller server run by default?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q18",
+      "style": "keyword",
+      "question": "Which planner plugin does the Nav2 planner server load if planner_plugins is not set?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q19",
+      "style": "keyword",
+      "question": "What behaviors does the Nav2 behavior server load by default?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q20",
+      "style": "paraphrase",
+      "question": "How does Nav2 work out where the robot is on a known, static map?",
+      "first_rank": {
+        "dense": 2,
+        "hybrid": 3,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q21",
+      "style": "keyword",
+      "question": "What are the default min_particles and max_particles in AMCL?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q22",
+      "style": "paraphrase",
+      "question": "Which part of the system provides the map to odom transform, and which provides odom to base_link?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q23",
+      "style": "keyword",
+      "question": "What motion models does the MPPI controller support?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q24",
+      "style": "keyword",
+      "question": "What is the default motion model of the Smac Hybrid-A* planner?",
+      "first_rank": {
+        "dense": null,
+        "hybrid": 2,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q25",
+      "style": "keyword",
+      "question": "When running Nav2 with SLAM, which Nav2 servers should not be launched?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q26",
+      "style": "keyword",
+      "question": "What is the default desired_linear_vel of the Regulated Pure Pursuit controller?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    }
+  ]
+}

@@ -1,3 +1,14 @@
 # Keep the app local: don't send Streamlit usage statistics.
 [browser]
 gatherUsageStats = false
+
+# Hide the developer toolbar (Deploy / Rerun / Stop) from visitors.
+[client]
+toolbarMode = "minimal"
+
+[theme]
+base = "dark"
+primaryColor = "#3987e5"
+backgroundColor = "#0b0f19"
+secondaryBackgroundColor = "#151b2b"
+textColor = "#e6e9f0"

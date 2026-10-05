@@ -67,7 +67,14 @@ GROQ_BASE_URL = "https://api.groq.com/openai/v1"  # OpenAI-compatible endpoint, 
 # Models (all run locally on CPU)
 DENSE_MODEL = "BAAI/bge-small-en-v1.5"
 SPARSE_MODEL = "Qdrant/bm25"
-RERANK_MODEL = "BAAI/bge-reranker-base"
+# The reranker can be swapped with the RERANK_MODEL environment variable: the
+# 1 GB bge-reranker-base needs ~2 GB of RAM in the app, more than free hosting allows.
+RERANK_MODEL = os.getenv("RERANK_MODEL", "BAAI/bge-reranker-base")
+
+# Public demo safety: the most LLM answers the app gives per day across all
+# visitors, so a public link can't use up the Groq free quota. 0 = no limit
+# (local use); set DAILY_LLM_LIMIT in the host's secrets when deploying.
+DAILY_LLM_LIMIT = int(os.getenv("DAILY_LLM_LIMIT", "0"))
 
 # Secrets (read from .env, never hardcoded)
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")

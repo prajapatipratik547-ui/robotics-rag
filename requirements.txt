@@ -7,16 +7,3 @@ beautifulsoup4==4.15.0
 groq==1.7.0
 google-genai==2.28.0
 streamlit==1.65.0
-
-# Evaluation (Stage 5) only; the RAG pipeline itself doesn't import these.
-ragas==0.4.3
-openai==1.109.1  # ragas talks to the Groq judge through its OpenAI-compatible API
-# ragas 0.4.3 imports langchain_community.chat_models.vertexai, removed in
-# langchain-community 0.4, so the langchain packages stay on 0.3.x.
-langchain==0.3.30
-langchain-community==0.3.31
-langchain-core==0.3.86
-langchain-openai==0.3.35
-# pyarrow 25.0.1's _json module was blocked by Windows Application Control
-# (Smart App Control) on the dev machine; 24.0.0 loads.
-pyarrow==24.0.0

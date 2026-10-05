@@ -30,7 +30,6 @@ import asyncio
 import hashlib
 import json
 import math
-import re
 import sys
 import time
 import warnings
@@ -55,12 +54,11 @@ with warnings.catch_warnings():
 import config
 from src.generate import NOT_FOUND, SYSTEM_PROMPT, QuotaExceeded, generate
 from src.retrieve import close_client, retrieve
+from src.testset import CHUNKS_PATH, TESTSET_PATH, load_jsonl, relevant_chunk_ids
 
 EVAL_DIR = ROOT / "eval"
-TESTSET_PATH = EVAL_DIR / "testset.jsonl"
 RESULTS_PATH = EVAL_DIR / "results.md"
 CACHE_PATH = EVAL_DIR / "cache" / "llm_cache.json"
-CHUNKS_PATH = config.PROCESSED_DATA_DIR / "chunks.jsonl"
 
 # label -> (retrieval mode, rerank on/off)
 CONFIGS = {
@@ -79,31 +77,6 @@ METRIC_NAMES = {
     "accuracy": "Answer accuracy",
 }
 
-
-def load_jsonl(path: Path) -> list[dict]:
-    with path.open(encoding="utf-8") as f:
-        return [json.loads(line) for line in f if line.strip()]
-
-
-def normalize(text: str) -> str:
-    return re.sub(r"\s+", " ", text).lower()
-
-
-def relevant_chunk_ids(item: dict, chunks: list[dict]) -> list[str]:
-    """Every chunk whose section title + text contains one of the item's
-    evidence phrases, within that phrase's source file. Matching on text
-    rather than storing chunk IDs keeps the test set valid if chunking changes."""
-    ids: list[str] = []
-    for evidence in item["evidence"]:
-        phrase = normalize(evidence["text"])
-        for chunk in chunks:
-            if chunk["source_file"] != evidence["source_file"] or chunk["chunk_id"] in ids:
-                continue
-            if phrase in normalize(f"{chunk['section']} {chunk['text']}"):
-                ids.append(chunk["chunk_id"])
-    if not ids:
-        raise ValueError(f"{item['id']}: no chunk contains its evidence; check {TESTSET_PATH.name}")
-    return ids
 
 
 # --- retrieval metrics ---------------------------------------------------
@@ -285,7 +258,45 @@ def per_question_table(retrieval: dict, testset: list[dict], with_llm: bool) -> 
     return "\n".join(lines)
 
 
-def write_report(retrieval: dict, testset: list[dict], chunk_count: int, with_llm: bool, complete: bool) -> str:
+def write_json(path: Path, retrieval: dict, testset: list[dict], metrics: list[str], complete: bool) -> None:
+    """The same numbers as the Markdown report, for the app's Evaluation tab."""
+    summary = {}
+    for label in CONFIGS:
+        rows = list(retrieval[label].values())
+        summary[label] = {metric: mean(rows, metric)[0] for metric in metrics}
+        summary[label]["latency_s"] = sum(r["latency"] for r in rows) / len(rows)
+    by_style = {
+        style: {
+            label: {m: mean([retrieval[label][i["id"]] for i in testset if i["style"] == style], m)[0]
+                    for m in ("hit", "mrr")}
+            for label in CONFIGS
+        }
+        for style in ("keyword", "paraphrase")
+    }
+    per_question = [
+        {
+            "id": item["id"],
+            "style": item["style"],
+            "question": item["question"],
+            "first_rank": {label: retrieval[label][item["id"]]["first_rank"] for label in CONFIGS},
+        }
+        for item in testset
+    ]
+    data = {
+        "date": date.today().isoformat(),
+        "rerank_model": config.RERANK_MODEL,
+        "metrics": metrics,
+        "complete": complete,
+        "summary": summary,
+        "by_style": by_style,
+        "per_question": per_question,
+    }
+    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
+def write_report(
+    path: Path, retrieval: dict, testset: list[dict], chunk_count: int, with_llm: bool, complete: bool
+) -> str:
     metrics = RETRIEVAL_METRICS + (LLM_METRICS if with_llm else [])
     by_style = {}
     for style in ("keyword", "paraphrase"):
@@ -300,7 +311,8 @@ def write_report(retrieval: dict, testset: list[dict], chunk_count: int, with_ll
         "# Evaluation results",
         "",
         f"Run on {date.today().isoformat()} with `python eval/run_eval.py`: "
-        f"{len(testset)} questions, {chunk_count} chunks from 32 documents, top {config.TOP_K} chunks per question.",
+        f"{len(testset)} questions, {chunk_count} chunks from 32 documents, top {config.TOP_K} chunks per question, "
+        f"reranker `{config.RERANK_MODEL}`.",
         "",
         "## Summary",
         "",
@@ -354,13 +366,17 @@ def write_report(retrieval: dict, testset: list[dict], chunk_count: int, with_ll
             "answer against the reference as 0, 0.5 or 1, averaged).",
         ]
     report = "\n".join(parts) + "\n"
-    RESULTS_PATH.write_text(report, encoding="utf-8")
+    path.write_text(report, encoding="utf-8")
+    write_json(path.with_suffix(".json"), retrieval, testset, metrics, complete)
     return report
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Compare dense, hybrid and hybrid+rerank retrieval.")
     parser.add_argument("--retrieval-only", action="store_true", help="skip the LLM answer metrics")
+    parser.add_argument(
+        "--output", type=Path, default=RESULTS_PATH, help="report path (a .json copy is written next to it)"
+    )
     args = parser.parse_args()
 
     testset = load_jsonl(TESTSET_PATH)
@@ -376,10 +392,10 @@ def main() -> None:
         complete = asyncio.run(run_answers(testset, retrieval, cache))
 
     metrics = RETRIEVAL_METRICS + ([] if args.retrieval_only else LLM_METRICS)
-    write_report(retrieval, testset, len(chunks), not args.retrieval_only, complete)
+    write_report(args.output, retrieval, testset, len(chunks), not args.retrieval_only, complete)
     print("\n" + summary_table(retrieval, testset, metrics))
     print(latency_line(retrieval))
-    print(f"\nFull report: {RESULTS_PATH.relative_to(ROOT)}")
+    print(f"\nFull report: {args.output}")
 
 
 if __name__ == "__main__":

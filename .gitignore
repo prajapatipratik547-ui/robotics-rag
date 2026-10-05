@@ -1,6 +1,7 @@
-# Environment
+# Environment and secrets
 .venv/
 .env
+.streamlit/secrets.toml
 
 # Downloaded corpus: manufacturers' copyrighted datasheets and docs pages.
 # Rebuild it with: python data/download_corpus.py

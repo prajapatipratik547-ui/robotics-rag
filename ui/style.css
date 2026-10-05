@@ -1,0 +1,165 @@
+/* Robotics RAG UI. Colours follow .streamlit/config.toml's dark theme. */
+:root {
+  --surface: #151b2b;
+  --border: rgba(255, 255, 255, 0.10);
+  --ink: #e6e9f0;
+  --ink-2: #b4bccb;
+  --muted: #8b93a5;
+  --accent: #3987e5;
+  --accent-soft: rgba(57, 135, 229, 0.16);
+  --good: #0ca30c;
+  --mark: rgba(250, 178, 25, 0.28);
+}
+
+.block-container { padding-top: 4rem; max-width: 1200px; }
+
+/* ---- motion ----------------------------------------------------------- */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes glow-in {
+  0%   { border-color: var(--border); box-shadow: none; }
+  50%  { border-color: var(--accent); box-shadow: 0 0 18px rgba(57, 135, 229, 0.45); }
+  100% { border-color: rgba(57, 135, 229, 0.45); box-shadow: none; }
+}
+@keyframes reveal {
+  from { opacity: 0; transform: translateY(26px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ---- hero ------------------------------------------------------------- */
+.hero {
+  padding: 1.6rem 1.8rem 1.4rem;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background:
+    radial-gradient(900px 260px at 0% 0%, rgba(57, 135, 229, 0.22), transparent 60%),
+    radial-gradient(700px 240px at 100% 100%, rgba(144, 133, 233, 0.16), transparent 60%),
+    var(--surface);
+  animation: fade-up 0.6s ease both;
+}
+.hero h1 { margin: 0 0 0.3rem; font-size: 2.2rem; letter-spacing: -0.02em; color: var(--ink); }
+.hero p { margin: 0; color: var(--ink-2); font-size: 1.02rem; max-width: 60rem; }
+
+.pipeline { display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem; margin-top: 1.1rem; }
+.pipeline .step {
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--ink);
+  font-size: 0.86rem;
+  white-space: nowrap;
+  animation: fade-up 0.5s ease both, glow-in 1.2s ease both;
+}
+.pipeline .arrow { color: var(--muted); animation: fade-up 0.5s ease both; }
+/* Steps light up one after another, like a query flowing through. */
+.pipeline > :nth-child(1) { animation-delay: 0.15s, 0.15s; }
+.pipeline > :nth-child(2) { animation-delay: 0.30s; }
+.pipeline > :nth-child(3) { animation-delay: 0.45s, 0.45s; }
+.pipeline > :nth-child(4) { animation-delay: 0.60s; }
+.pipeline > :nth-child(5) { animation-delay: 0.75s, 0.75s; }
+.pipeline > :nth-child(6) { animation-delay: 0.90s; }
+.pipeline > :nth-child(7) { animation-delay: 1.05s, 1.05s; }
+.pipeline > :nth-child(8) { animation-delay: 1.20s; }
+.pipeline > :nth-child(9) { animation-delay: 1.35s, 1.35s; }
+
+/* ---- stat tiles --------------------------------------------------------- */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0.8rem; margin: 0.4rem 0 1rem; }
+.tile {
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  animation: fade-up 0.5s ease both;
+}
+.tile:nth-child(2) { animation-delay: 0.08s; }
+.tile:nth-child(3) { animation-delay: 0.16s; }
+.tile:nth-child(4) { animation-delay: 0.24s; }
+.tile .label { color: var(--muted); font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.tile .value { color: var(--ink); font-size: 2rem; font-weight: 650; line-height: 1.2; margin-top: 0.2rem; }
+.tile .from { color: var(--muted); font-size: 1rem; font-weight: 500; }
+.tile .note { color: var(--ink-2); font-size: 0.85rem; margin-top: 0.15rem; }
+.tile .delta { color: var(--good); font-weight: 600; }
+
+/* ---- answers -------------------------------------------------------------- */
+.st-key-answer, [class*="st-key-answer-"] {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 14px;
+  background: var(--surface);
+  padding: 0.9rem 1.1rem 0.6rem;
+  animation: fade-up 0.45s ease both;
+}
+.cite {
+  display: inline-block;
+  padding: 0 0.38em;
+  margin: 0 0.05em;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: #8fbcf2;
+  font-weight: 600;
+  font-size: 0.85em;
+}
+.meta { color: var(--muted); font-size: 0.82rem; }
+.sources { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.3rem 0 0.2rem; }
+.source {
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--ink-2);
+  font-size: 0.82rem;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+}
+.source b { color: #8fbcf2; }
+
+/* ---- retrieved chunks ------------------------------------------------------- */
+.chunk {
+  margin: 0.55rem 0;
+  padding: 0.75rem 0.95rem;
+  border: 1px solid var(--border);
+  border-left: 3px solid rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+  animation: fade-up 0.4s ease both;
+}
+.chunk.cited { border-left-color: var(--accent); }
+.chunk.relevant { border-left-color: var(--good); }
+.chunk .head { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: baseline; margin-bottom: 0.35rem; }
+.chunk .rank { color: var(--ink); font-weight: 650; }
+.chunk .where { color: var(--ink-2); font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 0.82rem; }
+.chunk .score { color: var(--muted); font-size: 0.78rem; margin-left: auto; }
+.chunk .text { color: var(--ink-2); font-size: 0.88rem; line-height: 1.5; max-height: 11.5em; overflow-y: auto; }
+.chunk mark { background: var(--mark); color: var(--ink); padding: 0 0.12em; border-radius: 3px; }
+.badge {
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+.badge.cited { background: var(--accent-soft); color: #8fbcf2; }
+.badge.relevant { background: rgba(12, 163, 12, 0.18); color: #6ee06e; }
+.badge.miss { background: rgba(208, 59, 59, 0.18); color: #f08a8a; }
+
+/* Compare tab: one column per retrieval mode */
+.mode-head { padding: 0.7rem 0.9rem; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); animation: fade-up 0.4s ease both; }
+.mode-head h4 { margin: 0; font-size: 1.02rem; color: var(--ink); }
+.mode-head p { margin: 0.15rem 0 0; color: var(--muted); font-size: 0.82rem; }
+
+/* Scroll effect: cards rise into place as they scroll into view, in browsers
+   with scroll-driven animations (others keep the plain fade-up). */
+@supports (animation-timeline: view()) {
+  .chunk, .tile, .scroll-reveal {
+    animation: reveal linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 100%;  /* done once the card is fully in view */
+  }
+}
+
+/* Respect the "reduce motion" OS setting. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
