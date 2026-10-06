@@ -1,5 +1,5 @@
 {
-  "date": "2026-10-05",
+  "date": "2026-10-06",
   "rerank_model": "Xenova/ms-marco-MiniLM-L-6-v2",
   "metrics": [
     "hit",
@@ -7,57 +7,156 @@
     "recall",
     "precision"
   ],
+  "llm_modes": [
+    "hybrid+rerank"
+  ],
   "complete": true,
   "summary": {
     "dense": {
-      "hit": 0.8846153846153846,
-      "mrr": 0.8153846153846154,
-      "recall": 0.7211538461538461,
-      "precision": 0.26153846153846155,
-      "latency_s": 0.00666020769187106
+      "hit": 0.8352941176470589,
+      "mrr": 0.6952941176470588,
+      "recall": 0.7754901960784314,
+      "precision": 0.20941176470588235,
+      "latency_s": 0.007092974116505288
     },
     "hybrid": {
-      "hit": 0.9615384615384616,
-      "mrr": 0.8910256410256411,
-      "recall": 0.8012820512820512,
-      "precision": 0.2923076923076923,
-      "latency_s": 0.01932912308257073
+      "hit": 0.9529411764705882,
+      "mrr": 0.8037254901960784,
+      "recall": 0.8745098039215685,
+      "precision": 0.2376470588235294,
+      "latency_s": 0.020963775295668338
     },
     "hybrid+rerank": {
-      "hit": 0.9615384615384616,
-      "mrr": 0.8974358974358974,
-      "recall": 0.8461538461538461,
-      "precision": 0.3076923076923077,
-      "latency_s": 0.9026872423128225
+      "hit": 0.9529411764705882,
+      "mrr": 0.8450980392156863,
+      "recall": 0.892156862745098,
+      "precision": 0.2447058823529412,
+      "latency_s": 1.109709034117473
     }
+  },
+  "confidence_intervals": {
+    "modes": {
+      "dense": {
+        "hit": [
+          0.7529411764705882,
+          0.9058823529411765
+        ],
+        "mrr": [
+          0.6101960784313727,
+          0.7772598039215686
+        ]
+      },
+      "hybrid": {
+        "hit": [
+          0.9058823529411765,
+          0.9882352941176471
+        ],
+        "mrr": [
+          0.7339166666666668,
+          0.8690196078431374
+        ]
+      },
+      "hybrid+rerank": {
+        "hit": [
+          0.9058823529411765,
+          0.9882352941176471
+        ],
+        "mrr": [
+          0.7813725490196077,
+          0.9039460784313723
+        ]
+      }
+    },
+    "differences": [
+      {
+        "modes": [
+          "hybrid",
+          "dense"
+        ],
+        "hit": {
+          "diff": 0.11764705882352941,
+          "ci": [
+            0.058823529411764705,
+            0.18823529411764706
+          ]
+        },
+        "mrr": {
+          "diff": 0.10843137254901959,
+          "ci": [
+            0.05,
+            0.17352941176470588
+          ]
+        }
+      },
+      {
+        "modes": [
+          "hybrid+rerank",
+          "hybrid"
+        ],
+        "hit": {
+          "diff": 0.0,
+          "ci": [
+            -0.03529411764705882,
+            0.03529411764705882
+          ]
+        },
+        "mrr": {
+          "diff": 0.041372549019607845,
+          "ci": [
+            -0.01019607843137255,
+            0.09510294117647053
+          ]
+        }
+      },
+      {
+        "modes": [
+          "hybrid+rerank",
+          "dense"
+        ],
+        "hit": {
+          "diff": 0.11764705882352941,
+          "ci": [
+            0.058823529411764705,
+            0.18823529411764706
+          ]
+        },
+        "mrr": {
+          "diff": 0.14980392156862746,
+          "ci": [
+            0.07607843137254902,
+            0.22823529411764704
+          ]
+        }
+      }
+    ]
   },
   "by_style": {
     "keyword": {
       "dense": {
-        "hit": 0.9,
-        "mrr": 0.86
+        "hit": 0.9545454545454546,
+        "mrr": 0.8481060606060606
       },
       "hybrid": {
         "hit": 1.0,
-        "mrr": 0.975
+        "mrr": 0.9041666666666667
       },
       "hybrid+rerank": {
         "hit": 1.0,
-        "mrr": 0.95
+        "mrr": 0.9015151515151515
       }
     },
     "paraphrase": {
       "dense": {
-        "hit": 0.8333333333333334,
-        "mrr": 0.6666666666666666
+        "hit": 0.7073170731707317,
+        "mrr": 0.5313008130081301
       },
       "hybrid": {
-        "hit": 0.8333333333333334,
-        "mrr": 0.611111111111111
+        "hit": 0.9024390243902439,
+        "mrr": 0.6959349593495935
       },
       "hybrid+rerank": {
-        "hit": 0.8333333333333334,
-        "mrr": 0.7222222222222222
+        "hit": 0.9024390243902439,
+        "mrr": 0.7845528455284553
       }
     }
   },
@@ -316,6 +415,596 @@
       "id": "q26",
       "style": "keyword",
       "question": "What is the default desired_linear_vel of the Regulated Pure Pursuit controller?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q27",
+      "style": "keyword",
+      "question": "Which behavior tree library does Nav2 use?",
+      "first_rank": {
+        "dense": 2,
+        "hybrid": 2,
+        "hybrid+rerank": 2
+      }
+    },
+    {
+      "id": "q28",
+      "style": "paraphrase",
+      "question": "How can I stop a robot from ever entering certain areas of the map, or limit its speed there, in Nav2?",
+      "first_rank": {
+        "dense": null,
+        "hybrid": 2,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q29",
+      "style": "paraphrase",
+      "question": "What happens in Nav2 if one of its servers crashes after it has been brought up?",
+      "first_rank": {
+        "dense": null,
+        "hybrid": 2,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q30",
+      "style": "keyword",
+      "question": "Which method runs when a ROS 2 lifecycle node goes through its configuration stage, and what should it set up?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q31",
+      "style": "paraphrase",
+      "question": "What kind of message does a client send to Nav2's top-level navigator to make the robot drive to a goal?",
+      "first_rank": {
+        "dense": null,
+        "hybrid": 2,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q32",
+      "style": "paraphrase",
+      "question": "Why does the behavior server subscribe to the local costmap instead of keeping its own copy?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q33",
+      "style": "paraphrase",
+      "question": "How does Nav2's route server differ from a normal freespace planner?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q34",
+      "style": "keyword",
+      "question": "Which action server in nav2_waypoint_follower accepts goals given in GPS coordinates?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q35",
+      "style": "paraphrase",
+      "question": "My robot isn't round. Should I give Nav2 a circle radius or the robot's actual shape?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q36",
+      "style": "keyword",
+      "question": "How much can cache_obstacle_heuristic speed up the Smac planners?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q37",
+      "style": "paraphrase",
+      "question": "Which global planner do the Nav2 maintainers suggest for a car-like robot with Ackermann steering?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q38",
+      "style": "keyword",
+      "question": "What does the use_composition launch option do, and what is its default?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q39",
+      "style": "paraphrase",
+      "question": "How can a robot that drives equally well forwards and backwards reach a goal without turning around 180 degrees?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q40",
+      "style": "paraphrase",
+      "question": "Which Nav2 costmap layer is meant for a 3D lidar?",
+      "first_rank": {
+        "dense": 2,
+        "hybrid": 1,
+        "hybrid+rerank": 2
+      }
+    },
+    {
+      "id": "q41",
+      "style": "keyword",
+      "question": "What is the default bt_loop_duration of the BT Navigator?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q42",
+      "style": "paraphrase",
+      "question": "To watch the navigate-to-pose behavior tree live in Groot2, which port do I connect to by default?",
+      "first_rank": {
+        "dense": 5,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q43",
+      "style": "keyword",
+      "question": "What is the default action_server_result_timeout in the BT Navigator?",
+      "first_rank": {
+        "dense": 3,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q44",
+      "style": "paraphrase",
+      "question": "By default, how big is each cell of a Nav2 costmap?",
+      "first_rank": {
+        "dense": 4,
+        "hybrid": 3,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q45",
+      "style": "keyword",
+      "question": "Which plugins does a Nav2 costmap load when the plugins parameter is not set?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q46",
+      "style": "paraphrase",
+      "question": "How do I make a costmap move along with the robot so it stays centred on it?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 2,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q47",
+      "style": "keyword",
+      "question": "What does track_unknown_space do in Costmap 2D, and what is its default?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q48",
+      "style": "paraphrase",
+      "question": "What cost does a cell need in the occupancy grid map to count as a lethal obstacle by default?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q49",
+      "style": "keyword",
+      "question": "What is the default obstacle_max_range of an obstacle layer data source?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q50",
+      "style": "paraphrase",
+      "question": "Up to what distance does the obstacle layer clear space by ray-tracing, by default?",
+      "first_rank": {
+        "dense": 2,
+        "hybrid": 4,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q51",
+      "style": "paraphrase",
+      "question": "How can I keep the static map as the dominant source of information, so the robot never drives through places that are not on it?",
+      "first_rank": {
+        "dense": null,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q52",
+      "style": "keyword",
+      "question": "What is the default tolerance of the NavFn planner?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q53",
+      "style": "paraphrase",
+      "question": "By default, does the NavFn global planner search with A* or with Dijkstra's algorithm?",
+      "first_rank": {
+        "dense": 2,
+        "hybrid": 2,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q54",
+      "style": "paraphrase",
+      "question": "Why are an IMU and wheel encoders often used together for odometry?",
+      "first_rank": {
+        "dense": 2,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q55",
+      "style": "keyword",
+      "question": "What must a robot's odometry system publish for Nav2 to work?",
+      "first_rank": {
+        "dense": 5,
+        "hybrid": 5,
+        "hybrid+rerank": 3
+      }
+    },
+    {
+      "id": "q56",
+      "style": "paraphrase",
+      "question": "How do you compute a differential-drive robot's linear and angular velocity from its two wheel speeds?",
+      "first_rank": {
+        "dense": null,
+        "hybrid": 2,
+        "hybrid+rerank": null
+      }
+    },
+    {
+      "id": "q57",
+      "style": "keyword",
+      "question": "Which ros2_control controller does the Nav2 guide recommend for wheel-encoder odometry?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q58",
+      "style": "paraphrase",
+      "question": "Which ROS message type would a sonar or infrared distance sensor publish?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q59",
+      "style": "keyword",
+      "question": "In the Nav2 sensor setup tutorial, what is the maximum range of sam_bot's simulated lidar?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q60",
+      "style": "paraphrase",
+      "question": "How accurate is a standalone GPS receiver, and what can bring that down to about a centimetre?",
+      "first_rank": {
+        "dense": null,
+        "hybrid": 4,
+        "hybrid+rerank": 2
+      }
+    },
+    {
+      "id": "q61",
+      "style": "keyword",
+      "question": "Which robot_localization node converts GPS fixes into cartesian coordinates for Nav2?",
+      "first_rank": {
+        "dense": 4,
+        "hybrid": 4,
+        "hybrid+rerank": 3
+      }
+    },
+    {
+      "id": "q62",
+      "style": "paraphrase",
+      "question": "Why are the EKFs in the Nav2 GPS tutorial run in 2D mode?",
+      "first_rank": {
+        "dense": 2,
+        "hybrid": 2,
+        "hybrid+rerank": 2
+      }
+    },
+    {
+      "id": "q63",
+      "style": "paraphrase",
+      "question": "In the GPS setup, where does the map origin come from if no datum is set?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q64",
+      "style": "paraphrase",
+      "question": "How far ahead in time does the MPPI controller predict by default?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q65",
+      "style": "keyword",
+      "question": "What is the default batch_size of the MPPI controller?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q66",
+      "style": "paraphrase",
+      "question": "How far must the robot drive before AMCL updates its particle filter?",
+      "first_rank": {
+        "dense": 2,
+        "hybrid": 3,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q67",
+      "style": "paraphrase",
+      "question": "What is the tightest turn the Hybrid-A* planner assumes the vehicle can make by default?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q68",
+      "style": "keyword",
+      "question": "What does failure_tolerance mean in the Nav2 controller server, and what is its default?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q69",
+      "style": "paraphrase",
+      "question": "How often does the Nav2 behavior server run its behavior plugins by default?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q70",
+      "style": "paraphrase",
+      "question": "What supply voltage range does the InvenSense 6-axis motion sensor run from?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 3
+      }
+    },
+    {
+      "id": "q71",
+      "style": "paraphrase",
+      "question": "How much sensor data can the motion sensor buffer on-chip so the host can read it in bursts?",
+      "first_rank": {
+        "dense": null,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q72",
+      "style": "keyword",
+      "question": "What accelerometer full-scale ranges does the MPU-6050 support?",
+      "first_rank": {
+        "dense": 2,
+        "hybrid": 2,
+        "hybrid+rerank": 2
+      }
+    },
+    {
+      "id": "q73",
+      "style": "paraphrase",
+      "question": "How is the IMU's sample rate derived from its divider register?",
+      "first_rank": {
+        "dense": 3,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q74",
+      "style": "keyword",
+      "question": "What is the address of the MPU-6050 ACCEL_CONFIG register?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q75",
+      "style": "paraphrase",
+      "question": "How often can the u-blox GPS module compute a new position, and how accurate is it horizontally?",
+      "first_rank": {
+        "dense": null,
+        "hybrid": null,
+        "hybrid+rerank": null
+      }
+    },
+    {
+      "id": "q76",
+      "style": "keyword",
+      "question": "What supply voltage does the NEO-6M need?",
+      "first_rank": {
+        "dense": 3,
+        "hybrid": 3,
+        "hybrid+rerank": 2
+      }
+    },
+    {
+      "id": "q77",
+      "style": "keyword",
+      "question": "Which protocols does the NEO-6M support?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 2,
+        "hybrid+rerank": 2
+      }
+    },
+    {
+      "id": "q78",
+      "style": "paraphrase",
+      "question": "What voltage can I feed into the Mega board's DC barrel jack?",
+      "first_rank": {
+        "dense": 2,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q79",
+      "style": "keyword",
+      "question": "How much SRAM and EEPROM does the ATmega2560 on the Arduino Mega 2560 have?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q80",
+      "style": "paraphrase",
+      "question": "How much continuous current can each channel of the dual full-bridge motor driver deliver?",
+      "first_rank": {
+        "dense": null,
+        "hybrid": null,
+        "hybrid+rerank": 4
+      }
+    },
+    {
+      "id": "q81",
+      "style": "paraphrase",
+      "question": "How does the L298 let you control the motor current?",
+      "first_rank": {
+        "dense": null,
+        "hybrid": null,
+        "hybrid+rerank": null
+      }
+    },
+    {
+      "id": "q82",
+      "style": "paraphrase",
+      "question": "How many distance measurements per second does the Slamtec 360\u00b0 laser scanner take, and how fast does it spin?",
+      "first_rank": {
+        "dense": null,
+        "hybrid": 5,
+        "hybrid+rerank": 4
+      }
+    },
+    {
+      "id": "q83",
+      "style": "keyword",
+      "question": "What laser wavelength does the RPLIDAR A1 use?",
+      "first_rank": {
+        "dense": 1,
+        "hybrid": 1,
+        "hybrid+rerank": 1
+      }
+    },
+    {
+      "id": "q84",
+      "style": "paraphrase",
+      "question": "How much current can the Pi 4's USB ports supply in total?",
+      "first_rank": {
+        "dense": 2,
+        "hybrid": 1,
+        "hybrid+rerank": 2
+      }
+    },
+    {
+      "id": "q85",
+      "style": "keyword",
+      "question": "What wireless connectivity does the Raspberry Pi 4 Model B have?",
       "first_rank": {
         "dense": 1,
         "hybrid": 1,

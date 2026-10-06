@@ -17,8 +17,17 @@ Two kinds of metrics:
    - Faithfulness: share of the answer's claims supported by the retrieved chunks.
    - Answer accuracy: does the answer match the reference answer (0, 0.5 or 1)?
 
+   Only hybrid+rerank (the full pipeline) gets answer metrics: the free judge
+   quota (200K tokens/day) covers ~25 questions a day, so all three modes
+   would take over a week. The modes are compared on the retrieval metrics.
+
 LLM answers and judge scores are cached in eval/cache/, so a run stopped by a
 rate limit resumes where it left off, and an unchanged rerun costs nothing.
+
+With a few dozen questions, one question is several points of Hit@5, so the
+report gives 95% bootstrap confidence intervals: for each mode's Hit@5 and MRR,
+and paired (same resampled questions for both modes) for the differences
+between modes. A difference whose interval excludes 0 is unlikely to be noise.
 
 Usage:
     python eval/run_eval.py                    # retrieval + answer metrics
@@ -39,6 +48,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+import numpy as np
 import openai
 from openai import AsyncOpenAI
 from ragas import SingleTurnSample
@@ -66,8 +76,13 @@ CONFIGS = {
     "hybrid": ("hybrid", False),
     "hybrid+rerank": ("hybrid", True),
 }
+LLM_CONFIGS = ["hybrid+rerank"]  # see the docstring: the judge quota allows one mode
 RETRIEVAL_METRICS = ["hit", "mrr", "recall", "precision"]
 LLM_METRICS = ["faithfulness", "accuracy"]
+CI_METRICS = ["hit", "mrr"]
+# Mode differences worth testing: what keyword search adds, then what reranking adds.
+COMPARISONS = [("hybrid", "dense"), ("hybrid+rerank", "hybrid"), ("hybrid+rerank", "dense")]
+BOOTSTRAP_SAMPLES = 10_000
 METRIC_NAMES = {
     "hit": "Hit@5",
     "mrr": "MRR",
@@ -163,7 +178,7 @@ async def run_answers(testset: list[dict], retrieval: dict, cache: dict) -> bool
     faithfulness = Faithfulness(llm=judge)
     accuracy = AnswerAccuracy(llm=judge)
     try:
-        for label in CONFIGS:
+        for label in LLM_CONFIGS:
             for item in testset:
                 row = retrieval[label][item["id"]]
                 hits = row["hits"]
@@ -216,6 +231,67 @@ def mean(rows: list[dict], metric: str) -> tuple[float | None, int]:
     return (sum(values) / len(values) if values else None), len(values)
 
 
+def resample(n: int) -> np.ndarray:
+    """BOOTSTRAP_SAMPLES rows of n question indices drawn with replacement. A fixed
+    seed keeps the report reproducible; every interval uses the same draws."""
+    return np.random.default_rng(0).integers(0, n, size=(BOOTSTRAP_SAMPLES, n))
+
+
+def interval(samples: np.ndarray) -> list[float]:
+    return [float(np.percentile(samples, 2.5)), float(np.percentile(samples, 97.5))]
+
+
+def confidence_intervals(retrieval: dict, testset: list[dict]) -> dict:
+    """95% bootstrap intervals: per mode, and paired for the mode differences."""
+    ids = [item["id"] for item in testset]
+    draws = resample(len(ids))
+    scores = {
+        label: {m: np.array([retrieval[label][qid][m] for qid in ids]) for m in CI_METRICS} for label in CONFIGS
+    }
+    modes = {label: {m: interval(scores[label][m][draws].mean(axis=1)) for m in CI_METRICS} for label in CONFIGS}
+    differences = []
+    for a, b in COMPARISONS:
+        row = {"modes": [a, b]}
+        for m in CI_METRICS:
+            diff = scores[a][m] - scores[b][m]
+            row[m] = {"diff": float(diff.mean()), "ci": interval(diff[draws].mean(axis=1))}
+        differences.append(row)
+    return {"modes": modes, "differences": differences}
+
+
+def fmt_score(value: float, metric: str, signed: bool = False) -> str:
+    """Hit@5 as a percentage (a difference in points), MRR to 3 decimals."""
+    if metric == "hit":
+        return f"{value * 100:+.0f}" if signed else f"{value:.0%}"
+    return f"{value:+.3f}" if signed else f"{value:.3f}"
+
+
+def span(lo: float, hi: float, metric: str, signed: bool = False) -> str:
+    return f"{fmt_score(lo, metric, signed)} to {fmt_score(hi, metric, signed)}"
+
+
+def ci_tables(cis: dict, retrieval: dict) -> str:
+    lines = ["| Mode | Hit@5 | 95% CI | MRR | 95% CI |", "|---|---|---|---|---|"]
+    for label in CONFIGS:
+        rows = list(retrieval[label].values())
+        hit, mrr = cis["modes"][label]["hit"], cis["modes"][label]["mrr"]
+        lines.append(
+            f"| {label} | {mean(rows, 'hit')[0]:.0%} | {span(*hit, 'hit')} "
+            f"| {mean(rows, 'mrr')[0]:.3f} | {span(*mrr, 'mrr')} |"
+        )
+    lines += ["", "| Difference | Hit@5 (pts) | 95% CI | MRR | 95% CI | Clear? |", "|---|---|---|---|---|---|"]
+    for row in cis["differences"]:
+        a, b = row["modes"]
+        hit, mrr = row["hit"], row["mrr"]
+        # "Clear" = the interval excludes 0 for at least one of the two metrics.
+        clear = any(r["ci"][0] > 0 or r["ci"][1] < 0 for r in (hit, mrr))
+        lines.append(
+            f"| {a} vs {b} | {hit['diff'] * 100:+.0f} | {span(*hit['ci'], 'hit', True)} "
+            f"| {mrr['diff']:+.3f} | {span(*mrr['ci'], 'mrr', True)} | {'yes' if clear else 'no'} |"
+        )
+    return "\n".join(lines)
+
+
 def summary_table(retrieval: dict, testset: list[dict], metrics: list[str], ids=None) -> str:
     ids = ids or [item["id"] for item in testset]
     header = "| Mode | " + " | ".join(METRIC_NAMES[m] for m in metrics) + " |"
@@ -246,14 +322,14 @@ def per_question_table(retrieval: dict, testset: list[dict], with_llm: bool) -> 
     labels = list(CONFIGS)
     header = "| ID | Style | Question | " + " | ".join(f"Rank: {l}" for l in labels)
     if with_llm:
-        header += " | " + " | ".join(f"Accuracy: {l}" for l in labels)
-    columns = 3 + len(labels) * (2 if with_llm else 1)
+        header += " | " + " | ".join(f"Accuracy: {l}" for l in LLM_CONFIGS)
+    columns = 3 + len(labels) + (len(LLM_CONFIGS) if with_llm else 0)
     lines = [header + " |", "|" + "---|" * columns]
     for item in testset:
         rows = [retrieval[label][item["id"]] for label in labels]
         cells = [str(r["first_rank"]) if r["first_rank"] else "miss" for r in rows]
         if with_llm:
-            cells += [fmt(r.get("accuracy")) for r in rows]
+            cells += [fmt(retrieval[label][item["id"]].get("accuracy")) for label in LLM_CONFIGS]
         lines.append(f"| {item['id']} | {item['style']} | {item['question']} | " + " | ".join(cells) + " |")
     return "\n".join(lines)
 
@@ -286,8 +362,10 @@ def write_json(path: Path, retrieval: dict, testset: list[dict], metrics: list[s
         "date": date.today().isoformat(),
         "rerank_model": config.RERANK_MODEL,
         "metrics": metrics,
+        "llm_modes": LLM_CONFIGS,
         "complete": complete,
         "summary": summary,
+        "confidence_intervals": confidence_intervals(retrieval, testset),
         "by_style": by_style,
         "per_question": per_question,
     }
@@ -304,7 +382,7 @@ def write_report(
         by_style[style] = (len(ids), summary_table(retrieval, testset, ["hit", "mrr"], ids))
     answered = {
         label: sum(1 for r in retrieval[label].values() if r.get("answer") not in (None, NOT_FOUND))
-        for label in CONFIGS
+        for label in LLM_CONFIGS
     }
 
     parts = [
@@ -323,7 +401,8 @@ def write_report(
     if with_llm:
         parts += [
             "",
-            "Answered (not \"couldn't find\"): "
+            f"Answer metrics are measured for {', '.join(LLM_CONFIGS)} only (the free judge quota allows "
+            "one mode). Answered (not \"couldn't find\"): "
             + ", ".join(f"{label} {n}/{len(testset)}" for label, n in answered.items())
             + ". Faithfulness is averaged over answered questions only, since a "
             "\"couldn't find\" reply makes no claims to check.",
@@ -332,6 +411,16 @@ def write_report(
             parts += ["", "**Incomplete:** a rate limit stopped the LLM run; rerun to finish."]
     else:
         parts += ["", "Retrieval metrics only (`--retrieval-only`); `python eval/run_eval.py` adds the answer metrics."]
+    parts += [
+        "",
+        "## Is the difference real? (95% bootstrap confidence intervals)",
+        "",
+        f"Resampling the {len(testset)} questions {BOOTSTRAP_SAMPLES:,} times. Differences are paired: "
+        "both modes are scored on the same resampled questions. *Clear* means the interval for Hit@5 "
+        "or MRR excludes 0.",
+        "",
+        ci_tables(confidence_intervals(retrieval, testset), retrieval),
+    ]
     for style, (n, table) in by_style.items():
         parts += ["", f"## {style.capitalize()} questions ({n})", "", table]
     parts += [

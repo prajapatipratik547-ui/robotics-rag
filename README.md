@@ -29,16 +29,17 @@ runs locally on a CPU, for free.
 
 ## Results
 
-Measured on a hand-built test set of 26 questions, each with a confirmed
-answer and the exact passage(s) in the documents that contain it
+Measured on a hand-built test set of 85 questions covering all 32 documents
+(44 that name the part code or parameter, 41 paraphrased), each with a
+confirmed answer and the exact passage(s) in the documents that contain it
 ([eval/testset.jsonl](eval/testset.jsonl)). Full report:
 [eval/results.md](eval/results.md).
 
 | Retrieval mode | Hit@5 | MRR | Context recall | Context precision | Latency (CPU) |
 |---|---|---|---|---|---|
-| Dense only (baseline) | 88% | 0.815 | 0.721 | 0.262 | 0.01 s |
-| Hybrid (dense + BM25, RRF) | **96%** | 0.891 | **0.801** | **0.292** | 0.02 s |
-| Hybrid + rerank | **96%** | **0.905** | 0.798 | 0.285 | ~4 s |
+| Dense only (baseline) | 84% | 0.695 | 0.775 | 0.209 | 0.01 s |
+| Hybrid (dense + BM25, RRF) | **95%** | 0.804 | **0.875** | **0.238** | 0.03 s |
+| Hybrid + rerank | **95%** | **0.827** | 0.868 | 0.233 | ~4 s |
 
 - **Hit@5** is the retrieval accuracy: the share of questions where a chunk
   containing the answer is among the 5 passages handed to the LLM. If it isn't
@@ -49,32 +50,63 @@ answer and the exact passage(s) in the documents that contain it
   answer-bearing chunks that were retrieved, and the share of retrieved chunks
   that bear the answer.
 
-**Headline:** adding hybrid search and reranking improved retrieval accuracy
-from 88% to 96% and MRR from 0.815 to 0.905. Almost all of the accuracy gain
-comes from hybrid search; reranking adds a smaller ranking gain at a real
-latency cost (see design decisions below).
+**Headline:** hybrid search raised retrieval accuracy from 84% to 95% and MRR
+from 0.695 to 0.804, and that gain is real: paired 95% bootstrap confidence
+intervals put it at +6 to +19 points of Hit@5 and +0.050 to +0.174 MRR, both
+clear of zero. Reranking adds +0.023 MRR, but its interval (−0.041 to +0.085)
+includes zero, so on this test set it is not distinguishable from noise.
+
+| Difference (paired, 10,000 resamples) | Hit@5 | 95% CI | MRR | 95% CI | Clear? |
+|---|---|---|---|---|---|
+| Hybrid vs dense | +12 pts | +6 to +19 | +0.108 | +0.050 to +0.174 | yes |
+| Hybrid + rerank vs hybrid | +0 pts | −5 to +5 | +0.023 | −0.041 to +0.085 | no |
+| Hybrid + rerank vs dense | +12 pts | +4 to +20 | +0.131 | +0.053 to +0.213 | yes |
+
+Keyword search helps even on paraphrased questions, where you might expect
+semantic search to win: dense-only finds the answer for 71% of them, hybrid
+for 90% (keyword questions: 95% to 100%). Paraphrases of technical text still
+share rare terms with the answer, such as "turning radius" or "FIFO".
+
+**Where it still fails.** Every miss is a paraphrased question, in three
+patterns (per-question ranks in [eval/results.md](eval/results.md)):
+
+- *Answer in a PDF table flattened to text.* "How often can the u-blox GPS
+  module compute a new position?" needs the NEO-6M "Maximum Navigation update
+  rate" row; no mode finds it. q80 and q81 (L298 current limits) fail the same
+  way for both dense and hybrid; only the reranker rescues them.
+- *Question and answer share almost no words.* "Which setting controls how
+  fast the cost drops off as you move away from an obstacle?" is answered by
+  `cost_scaling_factor`, described only as "Exponential decay factor across
+  inflation radius". No mode retrieves it.
+- *The reranker demotes a correct hit.* For q58 (sonar message type) and q67
+  (minimum turning radius) hybrid ranks the answer first and the reranker
+  pushes it out of the top 5, while for q80 and q81 it does the opposite. Net
+  effect: zero, which is what the confidence interval says.
 
 **Smaller rerankers.** The same test, swapping only the cross-encoder
 (retrieval metrics; reports in [eval/rerankers/](eval/rerankers/)):
 
 | Reranker | Size | Hit@5 | MRR | Context recall | Latency (CPU) |
 |---|---|---|---|---|---|
-| BAAI/bge-reranker-base (default) | 1.04 GB | 96% | 0.905 | 0.798 | ~4 s |
-| jinaai/jina-reranker-v1-tiny-en | 0.13 GB | 96% | 0.923 | 0.827 | 0.8 s |
-| jinaai/jina-reranker-v1-turbo-en | 0.15 GB | 96% | 0.923 | 0.811 | 1.1 s |
-| Xenova/ms-marco-MiniLM-L-6-v2 | 0.08 GB | 96% | 0.897 | 0.846 | 0.9 s |
-| Xenova/ms-marco-MiniLM-L-12-v2 | 0.12 GB | 96% | 0.897 | 0.817 | 1.7 s |
+| BAAI/bge-reranker-base (default) | 1.04 GB | 95% | 0.827 | 0.868 | 4.4 s |
+| jinaai/jina-reranker-v1-tiny-en | 0.13 GB | 96% | 0.844 | 0.897 | 1.0 s |
+| jinaai/jina-reranker-v1-turbo-en | 0.15 GB | 96% | 0.815 | 0.894 | 1.3 s |
+| Xenova/ms-marco-MiniLM-L-6-v2 | 0.08 GB | 95% | 0.845 | 0.892 | 1.1 s |
+| Xenova/ms-marco-MiniLM-L-12-v2 | 0.12 GB | 95% | 0.854 | 0.883 | 1.8 s |
 
-All four small models do as well as the 1 GB default at a fraction of the
-size and time. On 26 questions, the MRR differences come down to one or two
-questions changing rank, so treat them as a tie rather than a ranking. The
-deployed app uses `jina-reranker-v1-tiny-en`, which fits a free host's memory.
+All four small models do at least as well as the 1 GB default at a fraction
+of the size and time, and none of them beats plain hybrid by a clear margin
+either (every MRR interval against hybrid includes zero), so treat this as a
+tie. The deployed app uses `jina-reranker-v1-tiny-en`, which fits a free
+host's memory.
 
 The answer-level ragas metrics (faithfulness to the retrieved passages, and
 accuracy against the reference answer, both judged by a separate LLM) are
-still being collected: the free judge model allows 200K tokens/day, about a
-day and a half for the full run. They will be added to
-[eval/results.md](eval/results.md) when complete.
+still being collected for hybrid + rerank, the full pipeline. The free judge
+model allows 200K tokens/day, roughly 25 questions, so judging all three modes
+would take over a week; the modes are compared on the retrieval metrics
+above. The results will be added to [eval/results.md](eval/results.md) when
+complete.
 
 ## How it works
 
@@ -229,7 +261,7 @@ src/retrieve.py         dense, sparse and hybrid search, reranking
 src/generate.py         prompt -> LLM -> answer with citations mapped to sources
 src/rag.py              ask(question) = retrieve + generate; command-line entry point
 src/testset.py          the test set, and which chunks answer each question
-eval/testset.jsonl      26 questions, reference answers, evidence phrases
+eval/testset.jsonl      85 questions, reference answers, evidence phrases
 eval/run_eval.py        compares dense, hybrid and hybrid+rerank; writes eval/results.md + .json
 eval/rerankers/         the same evaluation with four smaller rerankers
 data/download_corpus.py downloads the source documents
@@ -242,20 +274,24 @@ tests/test_qdrant.py    smoke test for local Qdrant
   exact tokens: a question naming `motion_model` or "Mega 2560" can land on a
   chunk about the right topic that doesn't hold the answer. BM25 catches those
   exact matches, which is where hybrid search won most of its questions
-  (Hit@5 88% to 96%).
+  (Hit@5 84% to 95%).
 - **RRF instead of score blending.** Cosine similarities and BM25 scores live
   on different scales, so adding them needs tuned weights. RRF uses only each
   chunk's rank in each list, so it needs no tuning.
-- **Reranking was a smaller win than expected.** It improved ranking (MRR
-  0.891 to 0.905) but not Hit@5, and costs ~4 s per question on CPU against
-  0.02 s for hybrid alone. Once hybrid search already finds the answer for
-  96% of questions, there is little left for a reranker to fix. It also made
-  some ranking mistakes, such as preferring a power-consumption table whose
-  footnotes mention "cold start" over the table that holds the cold-start
-  time. I reported the result as measured rather than tuning settings until
-  it won.
+- **Reranking was not a measurable win.** It nudged MRR up (0.804 to 0.827)
+  but not Hit@5, the gain is inside its confidence interval, and it costs
+  ~4 s per question on CPU against 0.03 s for hybrid alone. Once hybrid
+  search already finds the answer for 95% of questions, there is little left
+  for a reranker to fix, and it breaks about as many rankings as it repairs
+  (see "Where it still fails"). I reported the result as measured rather than
+  tuning settings until it won.
+- **Measure the noise before claiming a win.** On the first 26 questions,
+  hybrid looked 8 points better than dense, but the confidence interval
+  reached zero: one or two questions either way. Growing the test set to 85
+  questions, written for the documents and question styles it didn't yet
+  cover, made the hybrid gain clear and showed the reranker gain was not.
 - **A bigger model wasn't a better one.** Four rerankers 7-13 times smaller
-  matched the 1 GB default on this test set and ran 2-5 times faster. That
+  matched the 1 GB default on this test set and ran 2-4 times faster. That
   mattered for deployment: the default needs ~2.2 GB of RAM in the app, more
   than the free host gives. Measuring first turned "turn reranking off online"
   into "use a model that is just as good and fits".
@@ -268,7 +304,7 @@ tests/test_qdrant.py    smoke test for local Qdrant
   phrase from the document that answers it; the eval finds every chunk
   containing that phrase. The test set survives re-chunking, and a chunk that
   repeats the answer elsewhere still counts.
-- **Evaluate the evaluation.** An audit of all 26 questions found five whose
+- **Evaluate the evaluation.** An audit of the first 26 questions found five whose
   answer also appeared in chunks I hadn't labelled, such as the MPU-6050
   register map repeating the gyro ranges from the product specification.
   Fixing those raised every mode's score. The audit covered all questions, not
@@ -289,12 +325,13 @@ tests/test_qdrant.py    smoke test for local Qdrant
 
 ## Limitations
 
-- The test set is small (26 questions) and was written from the corpus by the
-  builder, so the numbers show relative differences between modes better than
-  absolute real-world accuracy.
+- The test set (85 questions) was written from the corpus by the builder, so
+  the numbers show relative differences between modes better than absolute
+  real-world accuracy. Its confidence intervals are still several points
+  wide; a reranker gain smaller than that would need more questions to show.
 - PDF tables are extracted as flat text, so values in complex tables can be
   hard to retrieve and read (the NEO-6M time-to-first-fix table is one example).
 - The default reranker takes ~4 s per question on CPU; the small rerankers
-  above cut that to under a second at no measured cost.
+  above cut that to 1-2 s at no measured cost.
 - The free host sleeps when unused and forgets its index when restarted, so
   the first visit after a restart waits 3-5 minutes while the index is rebuilt.

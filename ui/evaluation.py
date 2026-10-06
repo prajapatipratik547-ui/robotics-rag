@@ -36,31 +36,70 @@ def load_json(path: Path) -> dict | None:
     return _load(str(path), path.stat().st_mtime) if path.exists() else None
 
 
-def bar_chart(summary: dict, metric: str) -> alt.Chart:
-    data = pd.DataFrame(
-        {"Mode": MODE_NAMES[m], "Score": summary[m][metric]} for m in MODE_NAMES if summary[m].get(metric) is not None
-    )
+def bar_chart(summary: dict, metric: str, cis: dict | None) -> alt.Chart:
+    """One bar per mode, with its 95% confidence interval as a whisker when known."""
+    rows = []
+    for mode, name in MODE_NAMES.items():
+        score = summary[mode].get(metric)
+        if score is None:
+            continue
+        low, high = cis["modes"][mode][metric] if cis else (score, score)
+        rows.append({"Mode": name, "Score": score, "Low": low, "High": high})
+    data = pd.DataFrame(rows)
     is_percent = metric == "hit"
     fmt = ".0%" if is_percent else ".3f"  # value labels and tooltips
     tick_fmt = ".0%" if is_percent else ".1f"
-    base = alt.Chart(data, title=METRIC_NAMES[metric]).encode(
-        y=alt.Y("Mode:N", sort=list(MODE_NAMES.values()), title=None, axis=alt.Axis(labelLimit=200)),
-        x=alt.X("Score:Q", scale=alt.Scale(domain=[0, 1.12]), title=None,
-                axis=alt.Axis(format=tick_fmt, values=[0, 0.25, 0.5, 0.75, 1])),
-    )
-    bars = base.mark_bar(cornerRadiusEnd=4, size=22).encode(
+    # Quarter ticks read well as percentages; MRR gets 0.2 steps so ".1f" never rounds a tick.
+    ticks = [0, 0.25, 0.5, 0.75, 1] if is_percent else [0, 0.2, 0.4, 0.6, 0.8, 1]
+    y =alt.Y("Mode:N", sort=list(MODE_NAMES.values()), title=None, axis=alt.Axis(labelLimit=200))
+    x_scale = alt.Scale(domain=[0, 1.12])
+    tooltip = [
+        alt.Tooltip("Mode:N"),
+        alt.Tooltip("Score:Q", format=fmt, title=METRIC_NAMES[metric]),
+        alt.Tooltip("Low:Q", format=fmt, title="95% CI low"),
+        alt.Tooltip("High:Q", format=fmt, title="95% CI high"),
+    ]
+    chart = alt.Chart(data, title=METRIC_NAMES[metric])
+    bars = chart.mark_bar(cornerRadiusEnd=4, size=22).encode(
+        y=y,
+        x=alt.X("Score:Q", scale=x_scale, title=None, axis=alt.Axis(format=tick_fmt, values=ticks)),
         color=alt.Color("Mode:N", scale=alt.Scale(domain=list(MODE_COLORS), range=list(MODE_COLORS.values())), legend=None),
-        tooltip=[alt.Tooltip("Mode:N"), alt.Tooltip("Score:Q", format=fmt, title=METRIC_NAMES[metric])],
+        tooltip=tooltip,
     )
-    labels = base.mark_text(align="left", dx=6, color="#e6e9f0", fontSize=13).encode(text=alt.Text("Score:Q", format=fmt))
+    whiskers = chart.mark_rule(color="#e6e9f0", strokeWidth=2, opacity=0.7).encode(
+        y=y, x=alt.X("Low:Q", scale=x_scale), x2="High:Q", tooltip=tooltip
+    )
+    # The label sits past the whisker so the two never overlap.
+    labels = chart.mark_text(align="left", dx=6, color="#e6e9f0", fontSize=13).encode(
+        y=y, x=alt.X("High:Q", scale=x_scale), text=alt.Text("Score:Q", format=fmt)
+    )
     return (
-        (bars + labels)
+        (bars + whiskers + labels)
         .properties(height=alt.Step(40))  # one 40px band per bar: 22px bar + visible gap
         .configure(background="#151b2b")
         .configure_view(stroke=None)
         .configure_axis(labelColor="#b4bccb", gridColor="rgba(255,255,255,0.07)", domainColor="#383835", tickColor="#383835")
         .configure_title(color="#e6e9f0", anchor="start", fontSize=14)
     )
+
+
+def show_differences(cis: dict) -> None:
+    """The paired mode differences, and whether each is distinguishable from noise."""
+    st.subheader("Is the difference real?")
+    rows = []
+    for row in cis["differences"]:
+        a, b = (MODE_NAMES[m] for m in row["modes"])
+        hit, mrr = row["hit"], row["mrr"]
+        clear = any(r["ci"][0] > 0 or r["ci"][1] < 0 for r in (hit, mrr))
+        rows.append({
+            "Comparison": f"{a} vs {b}",
+            "Hit@5": f"{hit['diff'] * 100:+.0f} pts ({hit['ci'][0] * 100:+.0f} to {hit['ci'][1] * 100:+.0f})",
+            "MRR": f"{mrr['diff']:+.3f} ({mrr['ci'][0]:+.3f} to {mrr['ci'][1]:+.3f})",
+            "Verdict": "✓ clear gain" if clear else "within noise",
+        })
+    st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
+    st.caption("Paired bootstrap over the test questions (10,000 resamples); the 95% interval is in brackets. "
+               "A clear gain's interval excludes 0.")
 
 
 def show() -> None:
@@ -109,24 +148,32 @@ def show() -> None:
         )
     )
 
+    cis = results.get("confidence_intervals")
     left, right = st.columns(2)
-    left.altair_chart(bar_chart(summary, "hit"), width="stretch")
-    right.altair_chart(bar_chart(summary, "mrr"), width="stretch")
+    left.altair_chart(bar_chart(summary, "hit", cis), width="stretch")
+    right.altair_chart(bar_chart(summary, "mrr", cis), width="stretch")
     st.caption(
-        "Hybrid search does most of the work: keyword matching catches exact part codes and parameter "
-        "names that semantic search blurs. Reranking adds a smaller ranking gain."
+        "Whiskers: 95% bootstrap confidence intervals. Hybrid search does the work: keyword matching "
+        "catches exact part codes and parameter names that semantic search blurs. Reranking reorders the "
+        "top 5 a little, but its gain is within the noise."
     )
+    if cis:
+        show_differences(cis)
 
     with st.expander("All metrics as a table"):
         metrics = results["metrics"]
+        llm_modes = results.get("llm_modes", list(MODE_NAMES))
         table = pd.DataFrame(
             {METRIC_NAMES[m]: [summary[mode].get(m) for mode in MODE_NAMES] for m in metrics},
             index=list(MODE_NAMES.values()),
         )
         table["Latency (s)"] = [summary[mode]["latency_s"] for mode in MODE_NAMES]
-        st.dataframe(table.style.format("{:.3f}", na_rep="pending"), width="stretch")
+        st.dataframe(table.style.format("{:.3f}", na_rep="–"), width="stretch")
         if not {"faithfulness", "accuracy"} <= set(metrics) or not results.get("complete", True):
             st.caption("The LLM-judged answer metrics are still being collected (free judge quota: 200K tokens/day).")
+        else:
+            st.caption(f"Answer metrics are measured for {', '.join(MODE_NAMES[m] for m in llm_modes)} only "
+                       "(the free judge quota allows one mode).")
 
     st.subheader("Keyword vs paraphrased questions")
     style_rows = []
