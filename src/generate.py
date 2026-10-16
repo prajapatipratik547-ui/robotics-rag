@@ -138,11 +138,14 @@ def _call_gemini(system: str, prompt: str) -> str:
     raise AssertionError("unreachable")
 
 
+CITATION_RE = re.compile(r"\[(\d+(?:\s*,\s*\d+)*)\]")
+
+
 def extract_citations(text: str, hits: list[Hit]) -> list[tuple[int, Hit]]:
     """Find every [n] (or [n, m]) in the answer and map it to its chunk.
     Numbers that don't match a retrieved chunk are ignored."""
     numbers: list[int] = []
-    for group in re.findall(r"\[(\d+(?:\s*,\s*\d+)*)\]", text):
+    for group in CITATION_RE.findall(text):
         for n in group.split(","):
             n = int(n)
             if 1 <= n <= len(hits) and n not in numbers:
@@ -150,8 +153,20 @@ def extract_citations(text: str, hits: list[Hit]) -> list[tuple[int, Hit]]:
     return [(n, hits[n - 1]) for n in sorted(numbers)]
 
 
+def drop_invalid_citations(text: str, hit_count: int) -> str:
+    """Remove citation numbers that point at no retrieved passage, e.g. a
+    reference number copied from a datasheet: "[15]" goes, "[1, 15]" -> "[1]"."""
+
+    def keep_valid(match: re.Match) -> str:
+        valid = [n for n in (int(x) for x in match.group(2).split(",")) if 1 <= n <= hit_count]
+        # A citation removed entirely takes the space before it along.
+        return f"{match.group(1)}[{', '.join(map(str, valid))}]" if valid else ""
+
+    return re.sub(r"(\s*)" + CITATION_RE.pattern, keep_valid, text).strip()
+
+
 def generate(question: str, hits: list[Hit]) -> Answer:
     if not hits:
         return Answer(question, NOT_FOUND, hits, [])
-    text = call_llm(SYSTEM_PROMPT, build_prompt(question, hits))
+    text = drop_invalid_citations(call_llm(SYSTEM_PROMPT, build_prompt(question, hits)), len(hits))
     return Answer(question, text, hits, extract_citations(text, hits))

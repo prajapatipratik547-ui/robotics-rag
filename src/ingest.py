@@ -187,14 +187,18 @@ def hard_split(text: str, tokenizer: Tokenizer, max_tokens: int, overlap: int) -
     for start in range(0, len(offsets), max_tokens - overlap):
         window = offsets[start : start + max_tokens]
         begin, end = window[0][0], window[-1][1]
-        # Snap both ends to whitespace so a word is never cut in half.
+        # Snap both ends inward to whitespace so a word is never cut in half and
+        # the piece stays within max_tokens; the overlap carries a word cut off
+        # at the end into the next piece.
         snapped_begin, snapped_end = begin, end
         while 0 < snapped_begin < end and not text[snapped_begin - 1].isspace():
             snapped_begin += 1
-        while snapped_end < len(text) and not text[snapped_end].isspace():
-            snapped_end += 1
+        while begin < snapped_end < len(text) and not text[snapped_end].isspace():
+            snapped_end -= 1
         if snapped_begin < end:
             begin = snapped_begin
+        if snapped_end <= begin:  # a single "word" longer than the window: cut it
+            snapped_end = end
         pieces.append(text[begin:snapped_end].strip())
         if start + max_tokens >= len(offsets):
             break

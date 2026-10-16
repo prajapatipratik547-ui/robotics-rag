@@ -1,0 +1,3 @@
+# Running the tests: pytest on top of the evaluation dependencies.
+-r requirements-eval.txt
+pytest==9.1.1

@@ -1,0 +1,29 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+
+      # The end-to-end test downloads bge-small, BM25 and a small reranker (~0.3 GB).
+      - uses: actions/cache@v4
+        with:
+          path: .fastembed_cache
+          key: fastembed-${{ hashFiles('config.py') }}
+
+      - run: pip install -r requirements-dev.txt
+
+      # No API keys needed: the tests never call an LLM.
+      - run: pytest -q

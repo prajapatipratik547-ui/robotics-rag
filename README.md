@@ -211,6 +211,15 @@ python eval/run_eval.py                        # plus LLM-judged answer metrics 
 $env:RERANK_MODEL="jinaai/jina-reranker-v1-tiny-en"; python eval/run_eval.py --retrieval-only --output eval/rerankers/jina-reranker-v1-tiny-en.md
 ```
 
+Tests (24, about 10 s; the end-to-end one embeds a toy corpus into a temporary
+store, so it never touches your index). They also run on every push via
+GitHub Actions:
+
+```powershell
+pip install -r requirements-dev.txt
+pytest
+```
+
 Qdrant's local mode lets only one process open the database at a time, so
 close the app before running the CLI or the eval, and the other way round.
 The eval releases the database as soon as its retrieval step finishes.
@@ -268,6 +277,7 @@ app.py                  Streamlit app: Ask, Compare modes and Evaluation tabs
 ui/                     the app's styles, HTML pieces and Evaluation tab
 config.py               every model name, path and setting, in one place
 src/ingest.py           load -> chunk -> embed -> store
+src/passages.py         the text each chunk is embedded and reranked as (title | section + text)
 src/retrieve.py         dense, sparse and hybrid search, reranking
 src/generate.py         prompt -> LLM -> answer with citations mapped to sources
 src/rag.py              ask(question) = retrieve + generate; command-line entry point
@@ -275,8 +285,11 @@ src/testset.py          the test set, and which chunks answer each question
 eval/testset.jsonl      85 questions, reference answers, evidence phrases
 eval/run_eval.py        compares dense, hybrid and hybrid+rerank; writes eval/results.md + .json
 eval/rerankers/         the same evaluation with four smaller rerankers
+eval/finetune/          the same evaluation with fine-tuned embedding models, and the comparison
+train/                  fine-tuning bge-small on synthetic questions (own environment: requirements-train.txt)
 data/download_corpus.py downloads the source documents
-tests/test_qdrant.py    smoke test for local Qdrant
+tests/                  pytest suite (run on every push by .github/workflows/tests.yml)
+tests/test_qdrant.py    manual smoke test for local Qdrant
 ```
 
 ## Design decisions and what I learned
