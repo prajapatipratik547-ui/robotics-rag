@@ -100,13 +100,24 @@ either (every MRR interval against hybrid includes zero), so treat this as a
 tie. The deployed app uses `jina-reranker-v1-tiny-en`, which fits a free
 host's memory.
 
-The answer-level ragas metrics (faithfulness to the retrieved passages, and
-accuracy against the reference answer, both judged by a separate LLM) are
-still being collected for hybrid + rerank, the full pipeline. The free judge
-model allows 200K tokens/day, roughly 25 questions, so judging all three modes
-would take over a week; the modes are compared on the retrieval metrics
-above. The results will be added to [eval/results.md](eval/results.md) when
-complete.
+**Answer quality** (ragas, judged by `openai/gpt-oss-120b`, a different model
+from the one writing the answers), for hybrid + rerank, the full pipeline:
+
+| Metric | Score |
+|---|---|
+| Answer accuracy (against the confirmed reference answers) | **0.900** |
+| Faithfulness (share of an answer's claims supported by its passages) | **0.957** |
+| Answered (rather than "couldn't find") | 83 / 85 |
+
+The answers are only as good as the retrieval: four of the five wrong answers
+are the retrieval misses above. For two of them (q58, q67) the model said it
+couldn't find the answer instead of guessing. The one reasoning error is q64,
+whose answer needs two parameters multiplied together (`time_steps` ×
+`model_dt`): only one of the two chunks was retrieved, and the model gave a
+single timestep as the horizon.
+
+The free judge allows ~200K tokens/day, roughly 25 questions, so only the full
+pipeline is judged; the three modes are compared on the retrieval metrics.
 
 ## How it works
 
@@ -312,7 +323,12 @@ tests/test_qdrant.py    smoke test for local Qdrant
 - **A different model judges the answers** from the one that writes them, so
   the judge isn't grading its own work. The answer metrics also caught a
   prompt bug: the model sometimes gave a correct answer and then added "I
-  couldn't find the answer", which I fixed in the prompt.
+  couldn't find the answer", which I fixed in the prompt. A low score also
+  exposed a bug in the eval itself: the judge saw each passage without its
+  section label, which on Nav2 parameter pages is the only place the
+  parameter's name appears, so a correct "batch_size defaults to 1000" was
+  marked unsupported. The judge now sees passages exactly as the generator
+  does; faithfulness went from 0.949 to 0.957.
 - **Check free-tier limits yourself.** Third-party guides overstated Gemini's
   free quota (20 requests/day in practice, not ~1,500). Groq's limits were read
   from its rate-limit response headers, and its daily token cap from a real

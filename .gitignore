@@ -21,3 +21,8 @@ __pycache__/
 
 # Downloaded model cache
 .fastembed_cache/
+
+# Fine-tuning: generated data (derived from the gitignored corpus), models, experiment indexes
+train/data/
+models/
+qdrant_exp/

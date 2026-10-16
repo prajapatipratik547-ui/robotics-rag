@@ -15,7 +15,9 @@ load_dotenv()
 ROOT_DIR = Path(__file__).resolve().parent
 RAW_DATA_DIR = ROOT_DIR / "data" / "raw"
 PROCESSED_DATA_DIR = ROOT_DIR / "data" / "processed"
-QDRANT_PATH = ROOT_DIR / "qdrant_data"  # local-mode storage, no Docker
+# Local-mode storage, no Docker. Overridable so experiments (e.g. a fine-tuned
+# embedding model) build their own index without touching the main one.
+QDRANT_PATH = ROOT_DIR / os.getenv("QDRANT_PATH", "qdrant_data")  # relative to the project
 MODEL_CACHE_DIR = ROOT_DIR / ".fastembed_cache"  # downloaded models live here, not in %TEMP%
 
 # Qdrant
@@ -70,6 +72,9 @@ ANSWER_MAX_TOKENS = 300
 
 # Models (all run locally on CPU)
 DENSE_MODEL = "BAAI/bge-small-en-v1.5"
+# Optional folder holding an ONNX export of bge-small (model.onnx + tokenizer
+# files), used instead of DENSE_MODEL; train/finetune.py writes one.
+DENSE_MODEL_PATH = str(ROOT_DIR / os.environ["DENSE_MODEL_PATH"]) if os.getenv("DENSE_MODEL_PATH") else ""
 SPARSE_MODEL = "Qdrant/bm25"
 # Chunks embedded per batch at ingestion. FastEmbed's default of 256 peaks at
 # ~7 GB of RAM on 400-token chunks, which gets the app killed on free hosting.

@@ -182,7 +182,11 @@ async def run_answers(testset: list[dict], retrieval: dict, cache: dict) -> bool
             for item in testset:
                 row = retrieval[label][item["id"]]
                 hits = row["hits"]
-                contexts = [hit.text for hit in hits]
+                # The judge sees each passage exactly as the generator does, source and
+                # section label included: on parameter pages the parameter's name
+                # appears only in the section, so text alone made correct answers
+                # look unsupported.
+                contexts = [f"(source: {hit.citation})\n{hit.text}" for hit in hits]
 
                 key = cache_key(
                     "answer", config.GROQ_MODEL, SYSTEM_PROMPT, item["question"], *(h.chunk_id for h in hits)

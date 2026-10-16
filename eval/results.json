@@ -1,11 +1,13 @@
 {
-  "date": "2026-10-06",
+  "date": "2026-10-16",
   "rerank_model": "BAAI/bge-reranker-base",
   "metrics": [
     "hit",
     "mrr",
     "recall",
-    "precision"
+    "precision",
+    "faithfulness",
+    "accuracy"
   ],
   "llm_modes": [
     "hybrid+rerank"
@@ -17,21 +19,27 @@
       "mrr": 0.6952941176470588,
       "recall": 0.7754901960784314,
       "precision": 0.20941176470588235,
-      "latency_s": 0.010857523529557512
+      "faithfulness": null,
+      "accuracy": null,
+      "latency_s": 0.030725857643205123
     },
     "hybrid": {
       "hit": 0.9529411764705882,
       "mrr": 0.8037254901960784,
       "recall": 0.8745098039215685,
       "precision": 0.2376470588235294,
-      "latency_s": 0.030381988236844976
+      "faithfulness": null,
+      "accuracy": null,
+      "latency_s": 0.059216425882529136
     },
     "hybrid+rerank": {
       "hit": 0.9529411764705882,
       "mrr": 0.8266666666666667,
       "recall": 0.8676470588235294,
       "precision": 0.23294117647058823,
-      "latency_s": 4.37445978705826
+      "faithfulness": 0.9565117613310384,
+      "accuracy": 0.9,
+      "latency_s": 5.586750585884746
     }
   },
   "confidence_intervals": {

@@ -25,7 +25,8 @@ from fastembed.rerank.cross_encoder import TextCrossEncoder
 from qdrant_client import QdrantClient, models
 
 import config
-from src.ingest import embedding_input
+from src.ingest import make_dense_model
+from src.passages import embedding_input
 
 
 @dataclass
@@ -69,7 +70,7 @@ def close_client() -> None:
 
 @lru_cache(maxsize=1)
 def get_dense_model() -> TextEmbedding:
-    return TextEmbedding(config.DENSE_MODEL, cache_dir=str(config.MODEL_CACHE_DIR))
+    return make_dense_model()
 
 
 @lru_cache(maxsize=1)

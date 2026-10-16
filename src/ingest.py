@@ -20,10 +20,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pymupdf
 from bs4 import BeautifulSoup, Comment
 from fastembed import SparseTextEmbedding, TextEmbedding
+from fastembed.common.model_description import ModelSource, PoolingType
 from qdrant_client import QdrantClient, models
 from tokenizers import Tokenizer
 
 import config
+from src.passages import embedding_input
 
 UPSERT_BATCH_SIZE = 64
 
@@ -239,18 +241,6 @@ def chunk_text(text: str, tokenizer: Tokenizer, max_tokens: int, overlap: int) -
     return chunks
 
 
-def doc_title(source_file: str) -> str:
-    """'rplidar_a1m8_datasheet.pdf' -> 'rplidar a1m8 datasheet'."""
-    return re.sub(r"[_\-]+", " ", Path(source_file).stem)
-
-
-def embedding_input(chunk: dict) -> str:
-    """What actually gets embedded: the chunk prefixed with its document title
-    and section. A datasheet page saying 'Scan frequency: 5.5 Hz' often never
-    names the part; the prefix puts 'rplidar a1m8' into both vectors."""
-    return f"{doc_title(chunk['source_file'])} | {chunk['section']}\n\n{chunk['text']}"
-
-
 def build_chunks(sections: list[Section], tokenizer: Tokenizer) -> list[dict]:
     chunks: list[dict] = []
     counters: dict[str, int] = {}
@@ -308,8 +298,23 @@ def create_collection(client: QdrantClient, dense_dim: int) -> None:
     )
 
 
+def make_dense_model() -> TextEmbedding:
+    """bge-small from FastEmbed, or, when DENSE_MODEL_PATH is set, a local ONNX
+    export of it (e.g. the fine-tuned model from train/finetune.py). Same
+    architecture either way: CLS pooling, normalized, 384 dimensions."""
+    if not config.DENSE_MODEL_PATH:
+        return TextEmbedding(config.DENSE_MODEL, cache_dir=str(config.MODEL_CACHE_DIR))
+    name = f"local/{Path(config.DENSE_MODEL_PATH).name}"
+    if name not in {m["model"] for m in TextEmbedding.list_supported_models()}:
+        TextEmbedding.add_custom_model(
+            name, pooling=PoolingType.CLS, normalization=True, sources=ModelSource(hf=name),
+            dim=384, model_file="model.onnx",
+        )
+    return TextEmbedding(name, specific_model_path=config.DENSE_MODEL_PATH)
+
+
 def embed_and_store(client: QdrantClient, chunks: list[dict]) -> None:
-    dense_model = TextEmbedding(config.DENSE_MODEL, cache_dir=str(config.MODEL_CACHE_DIR))
+    dense_model = make_dense_model()
     sparse_model = SparseTextEmbedding(config.SPARSE_MODEL, cache_dir=str(config.MODEL_CACHE_DIR))
 
     inputs = [embedding_input(c) for c in chunks]
