@@ -142,11 +142,26 @@ def show() -> None:
                 {
                     "label": "Latency per question",
                     "value": f"{hybrid['latency_s']:.2f} s",
-                    "note": f"hybrid; reranking adds ~{rerank['latency_s'] - hybrid['latency_s']:.1f} s on CPU",
+                    "note": f"hybrid; reranking with {results['rerank_model'].split('/')[-1]} adds "
+                            f"~{rerank['latency_s'] - hybrid['latency_s']:.1f} s on CPU",
                 },
             ]
         )
     )
+
+    if rerank.get("accuracy") is not None and results.get("complete", True):
+        st.html(
+            render.tiles(
+                [
+                    {"label": "Answer accuracy", "value": f"{rerank['accuracy']:.2f}",
+                     "note": "vs the confirmed reference answers (LLM judge)"},
+                    {"label": "Faithfulness", "value": f"{rerank['faithfulness']:.2f}",
+                     "note": "share of an answer's claims its passages support"},
+                ]
+            )
+        )
+        st.caption("Answer quality is judged for Hybrid + rerank, the full pipeline, by a different LLM "
+                   "from the one that writes the answers.")
 
     cis = results.get("confidence_intervals")
     left, right = st.columns(2)
