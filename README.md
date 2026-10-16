@@ -1,5 +1,7 @@
 # Robotics Hybrid RAG
 
+[![tests](https://github.com/prajapatipratik547-ui/robotics-rag/actions/workflows/tests.yml/badge.svg)](https://github.com/prajapatipratik547-ui/robotics-rag/actions/workflows/tests.yml)
+
 **Live demo: [robotics-rag.streamlit.app](https://robotics-rag.streamlit.app/)**
 (free hosting: after a quiet spell the app sleeps, and the first visit then
 rebuilds the search index, which takes a few minutes).
