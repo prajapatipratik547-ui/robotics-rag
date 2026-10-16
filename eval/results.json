@@ -21,7 +21,7 @@
       "precision": 0.20941176470588235,
       "faithfulness": null,
       "accuracy": null,
-      "latency_s": 0.030725857643205123
+      "latency_s": 0.009650230587131398
     },
     "hybrid": {
       "hit": 0.9529411764705882,
@@ -30,7 +30,7 @@
       "precision": 0.2376470588235294,
       "faithfulness": null,
       "accuracy": null,
-      "latency_s": 0.059216425882529136
+      "latency_s": 0.02832454706145012
     },
     "hybrid+rerank": {
       "hit": 0.9529411764705882,
@@ -39,7 +39,7 @@
       "precision": 0.23294117647058823,
       "faithfulness": 0.9565117613310384,
       "accuracy": 0.9,
-      "latency_s": 5.586750585884746
+      "latency_s": 4.482769323532086
     }
   },
   "confidence_intervals": {

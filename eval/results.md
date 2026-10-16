@@ -10,7 +10,7 @@ Run on 2026-10-16 with `python eval/run_eval.py`: 85 questions, 906 chunks from 
 | hybrid | 95% | 0.804 | 0.875 | 0.238 | n/a | n/a |
 | hybrid+rerank | 95% | 0.827 | 0.868 | 0.233 | 0.957 | 0.900 |
 
-Mean retrieval latency per question (CPU): dense 0.03 s, hybrid 0.06 s, hybrid+rerank 5.59 s.
+Mean retrieval latency per question (CPU): dense 0.01 s, hybrid 0.03 s, hybrid+rerank 4.48 s.
 
 Answer metrics are measured for hybrid+rerank only (the free judge quota allows one mode). Answered (not "couldn't find"): hybrid+rerank 83/85. Faithfulness is averaged over answered questions only, since a "couldn't find" reply makes no claims to check.
 

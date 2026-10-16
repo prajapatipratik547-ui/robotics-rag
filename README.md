@@ -41,7 +41,7 @@ confirmed answer and the exact passage(s) in the documents that contain it
 |---|---|---|---|---|---|
 | Dense only (baseline) | 84% | 0.695 | 0.775 | 0.209 | 0.01 s |
 | Hybrid (dense + BM25, RRF) | **95%** | 0.804 | **0.875** | **0.238** | 0.03 s |
-| Hybrid + rerank | **95%** | **0.827** | 0.868 | 0.233 | ~4 s |
+| Hybrid + rerank | **95%** | **0.827** | 0.868 | 0.233 | ~4.5 s |
 
 - **Hit@5** is the retrieval accuracy: the share of questions where a chunk
   containing the answer is among the 5 passages handed to the LLM. If it isn't
@@ -306,7 +306,7 @@ tests/test_qdrant.py    manual smoke test for local Qdrant
   chunk's rank in each list, so it needs no tuning.
 - **Reranking was not a measurable win.** It nudged MRR up (0.804 to 0.827)
   but not Hit@5, the gain is inside its confidence interval, and it costs
-  ~4 s per question on CPU against 0.03 s for hybrid alone. Once hybrid
+  ~4.5 s per question on CPU against 0.03 s for hybrid alone. Once hybrid
   search already finds the answer for 95% of questions, there is little left
   for a reranker to fix, and it breaks about as many rankings as it repairs
   (see "Where it still fails"). I reported the result as measured rather than
